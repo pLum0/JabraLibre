@@ -30,10 +30,15 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       # Release mit APK → direkt per Obtainium installierbar/updatable
+      # WICHTIG: Tag == versionName (Obtainium vergleicht beide).
+      # versionName in app/build.gradle.kts bei jedem Release bumpen!
+      - name: App-Version auslesen
+        id: ver
+        run: echo "v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.${{ github.run_number }}
-          name: JabraLibre v0.1.${{ github.run_number }}
+          tag_name: v${{ steps.ver.outputs.v }}
+          name: JabraLibre v${{ steps.ver.outputs.v }}
           body: Debug build. ANC/HearThrough/Off-Switcher für Jabra Elite 10 (RFCOMM, offline).
           files: app/build/outputs/apk/debug/app-debug.apk
