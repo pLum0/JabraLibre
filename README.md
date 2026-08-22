@@ -44,3 +44,11 @@ observing one's own devices. Use at your own risk.
 ## License
 
 GPL-3.0-or-later
+
+## Install via Obtainium
+
+Add **`pLum0/JabraLibre`** as a GitHub source in
+[Obtainium](https://github.com/ImranR98/Obtainium). Every CI build publishes a
+GitHub Release containing the signed debug APK (`v0.1.<run_number>`), so
+Obtainium picks up updates automatically. A committed debug keystore keeps the
+signature stable — updates install right over the previous version.

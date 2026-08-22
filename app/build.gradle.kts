@@ -12,7 +12,20 @@ android {
         versionCode = 1
         versionName = "0.1.0"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    signingConfigs {
+        getByName("debug") {
+            // fester Debug-Keystore im Repo → identische Signatur bei jedem CI-Build
+            // (wichtig für Obtainium/Updates: kein Deinstallieren nötig)
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+    buildTypes {
+        debug { signingConfig = signingConfigs.getByName("debug") }
+        release { isMinifyEnabled = false }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

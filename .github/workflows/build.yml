@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,3 +28,12 @@ jobs:
         with:
           name: JabraLibre-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      # Release mit APK → direkt per Obtainium installierbar/updatable
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: JabraLibre v0.1.${{ github.run_number }}
+          body: Debug build. ANC/HearThrough/Off-Switcher für Jabra Elite 10 (RFCOMM, offline).
+          files: app/build/outputs/apk/debug/app-debug.apk
