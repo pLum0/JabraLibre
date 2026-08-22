@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.JabraLibre" parent="Theme.AppCompat.DayNight.DarkActionBar" />
+</resources>
