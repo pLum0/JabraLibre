@@ -36,6 +36,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: ArrayAdapter<String>
     private var jabra: JabraRfcomm? = null
     private var device: BluetoothDevice? = null
+    private lateinit var btnAnc: Button
+    private lateinit var btnHt: Button
+    private lateinit var btnOff: Button
 
     private val btAdapter: BluetoothAdapter? by lazy {
         (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
@@ -74,9 +77,12 @@ class MainActivity : AppCompatActivity() {
             val d = device ?: run { log("erst Gerät wählen/verbinden"); return@setOnClickListener }
             jabra?.diagnose(d)
         }
-        findViewById<Button>(R.id.btnAnc).setOnClickListener { setMode(AncMode.ANC) }
-        findViewById<Button>(R.id.btnHt).setOnClickListener { setMode(AncMode.HEARTHROUGH) }
-        findViewById<Button>(R.id.btnOff).setOnClickListener { setMode(AncMode.OFF) }
+        btnAnc = findViewById(R.id.btnAnc)
+        btnHt = findViewById(R.id.btnHt)
+        btnOff = findViewById(R.id.btnOff)
+        btnAnc.setOnClickListener { setMode(AncMode.ANC) }
+        btnHt.setOnClickListener { setMode(AncMode.HEARTHROUGH) }
+        btnOff.setOnClickListener { setMode(AncMode.OFF) }
 
         deviceList.setOnItemClickListener { _, _, position, _ ->
             (adapter.getItem(position) as? String)?.let { entry ->
@@ -132,6 +138,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun showMode(m: AncMode) {
         status.text = "Modus: ${m.name}"
+        btnAnc.isActivated = (m == AncMode.ANC)
+        btnHt.isActivated = (m == AncMode.HEARTHROUGH)
+        btnOff.isActivated = (m == AncMode.OFF)
     }
 
     private fun ensurePermissions(): Boolean {

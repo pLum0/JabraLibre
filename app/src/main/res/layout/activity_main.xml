@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp">
+    android:orientation="vertical" android:padding="12dp"
+    android:fitsSystemWindows="true">
 
     <TextView
         android:id="@+id/status"
@@ -31,11 +32,14 @@
         android:orientation="horizontal">
 
         <Button android:id="@+id/btnAnc" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1" android:text="ANC" />
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="ANC"
+            android:background="@drawable/mode_button_bg" />
         <Button android:id="@+id/btnHt" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1" android:text="HearThrough" />
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="HearThrough"
+            android:background="@drawable/mode_button_bg" />
         <Button android:id="@+id/btnOff" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1" android:text="Off" />
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="Off"
+            android:background="@drawable/mode_button_bg" />
     </LinearLayout>
 
     <ScrollView
