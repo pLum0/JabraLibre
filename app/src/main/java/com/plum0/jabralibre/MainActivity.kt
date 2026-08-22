@@ -3,11 +3,16 @@ package com.plum0.jabralibre
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelUuid
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -16,6 +21,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,10 +32,28 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var adapter: ArrayAdapter<String>
     private var jabra: JabraRfcomm? = null
-    private var currentMode: AncMode? = null
+    private var device: BluetoothDevice? = null
 
     private val btAdapter: BluetoothAdapter? by lazy {
         (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
+    }
+
+    /** SDP-Ergebnisse (nach fetchUuidsWithSdp) → loggen + Connect-Retry. */
+    private val uuidReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != BluetoothDevice.ACTION_UUID) return
+            val uuids: Array<ParcelUuid>? =
+                if (Build.VERSION.SDK_INT >= 33)
+                    intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID, ParcelUuid::class.java)
+                else
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID) as? Array<ParcelUuid>
+            val list = uuids?.map { it.uuid.toString() }.orEmpty()
+            if (list.isNotEmpty()) {
+                log("SDP-UUIDs (frisch): ${list.joinToString(", ")}")
+                device?.let { d -> jabra?.connect(d) }   // Retry mit neuem Cache
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +66,10 @@ class MainActivity : AppCompatActivity() {
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1)
         deviceList.adapter = adapter
 
+        findViewById<Button>(R.id.btnDiag).setOnClickListener {
+            val d = device ?: run { log("erst Gerät wählen/verbinden"); return@setOnClickListener }
+            jabra?.diagnose(d)
+        }
         findViewById<Button>(R.id.btnAnc).setOnClickListener { setMode(AncMode.ANC) }
         findViewById<Button>(R.id.btnHt).setOnClickListener { setMode(AncMode.HEARTHROUGH) }
         findViewById<Button>(R.id.btnOff).setOnClickListener { setMode(AncMode.OFF) }
@@ -53,6 +81,17 @@ class MainActivity : AppCompatActivity() {
                 }?.let { connect(it) }
             }
         }
+
+        if (Build.VERSION.SDK_INT >= 33) {
+            ContextCompat.registerReceiver(
+                this, uuidReceiver,
+                IntentFilter(BluetoothDevice.ACTION_UUID),
+                ContextCompat.RECEIVER_EXPORTED
+            )
+        } else {
+            registerReceiver(uuidReceiver, IntentFilter(BluetoothDevice.ACTION_UUID))
+        }
+
         listBonded()
     }
 
@@ -70,14 +109,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     @SuppressLint("MissingPermission")
-    private fun connect(device: android.bluetooth.BluetoothDevice) {
-        log("wähle ${device.name}")
+    private fun connect(dev: BluetoothDevice) {
+        device = dev
+        log("wähle ${dev.name}")
         jabra?.close()
         jabra = JabraRfcomm(
             log = { msg -> runOnUiThread { log(msg) } },
             onMode = { m -> runOnUiThread { showMode(m) } }
         )
-        jabra?.connect(device)
+        jabra?.connect(dev)
     }
 
     private fun setMode(m: AncMode) {
@@ -87,7 +127,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMode(m: AncMode) {
-        currentMode = m
         status.text = "Modus: ${m.name}"
     }
 
@@ -115,5 +154,9 @@ class MainActivity : AppCompatActivity() {
         (logView.parent as? ScrollView)?.let { sv -> sv.post { sv.fullScroll(View.FOCUS_DOWN) } }
     }
 
-    override fun onDestroy() { jabra?.close(); super.onDestroy() }
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(uuidReceiver) }
+        jabra?.close()
+        super.onDestroy()
+    }
 }

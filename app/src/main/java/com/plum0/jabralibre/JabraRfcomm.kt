@@ -5,8 +5,11 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 enum class AncMode(val wire: Int) { OFF(0x01), HEARTHROUGH(0x02), ANC(0x04) }
@@ -17,8 +20,8 @@ class JabraRfcomm(
 ) {
     companion object {
         // aus dem HCI-Capture: DLCI 0x3a → Server-Kanal 29
-        private val CHANNELS = intArrayOf(29, 28)
         private val TOPIC_MODE = byteArrayOf(0x13, 0xbe.toByte())
+        private val CHANNELS = intArrayOf(29, 28, 30)
     }
 
     private var socket: BluetoothSocket? = null
@@ -27,48 +30,112 @@ class JabraRfcomm(
     private val seq = AtomicInteger(0x09)
     private val ui = Handler(Looper.getMainLooper())
     @Volatile private var closing = false
+    private val connecting = AtomicBoolean(false)
 
     val isConnected: Boolean get() = socket?.isConnected == true
 
+    // ---------- Socket-Beschaffung ----------
+
     /**
-     * createInsecureRfcommSocket(int) ist eine versteckte Android-API
-     * (nicht im öffentlichen SDK) → per Reflection aufrufen.
-     * Standard-Trick für Geräte ohne SPP-Service-Eintrag, klappt seit Jahren.
+     * createInsecureRfcommSocket(int)/createRfcommSocket(int) sind versteckte
+     * Android-APIs (nicht im SDK) → per Reflection. null, falls nicht aufrufbar.
      */
-    private fun openSocket(device: BluetoothDevice, channel: Int): BluetoothSocket? =
-        try {
-            val m = device.javaClass.getMethod(
-                "createInsecureRfcommSocket", Int::class.javaPrimitiveType
-            )
+    private fun openSocket(device: BluetoothDevice, channel: Int, insecure: Boolean = true): BluetoothSocket? =
+        runCatching {
+            val name = if (insecure) "createInsecureRfcommSocket" else "createRfcommSocket"
+            val m = device.javaClass.getMethod(name, Int::class.javaPrimitiveType)
             m.invoke(device, channel) as? BluetoothSocket
-        } catch (e: Exception) {
-            log("Kanal $channel nicht öffnbar: ${e.message}")
-            null
-        }
+        }.getOrNull()
+
+    private fun cachedUuids(device: BluetoothDevice): List<ParcelUuid>? =
+        runCatching {
+            @Suppress("UNCHECKED_CAST")
+            device.javaClass.getMethod("getUuids").invoke(device) as? Array<ParcelUuid>
+        }.getOrNull()?.toList()
+
+    /** Öffentlichen Weg: SDP-Service-Record → Android löst den Kanal selbst auf. */
+    private fun uuidSocket(device: BluetoothDevice, uuid: UUID): BluetoothSocket? =
+        runCatching { device.createRfcommSocketToServiceRecord(uuid) }.getOrNull()
+
+    // ---------- Verbinden ----------
 
     @SuppressLint("MissingPermission")
     fun connect(device: BluetoothDevice) {
+        if (!connecting.compareAndSet(false, true)) return
         closing = false
         Thread {
-            for (ch in CHANNELS) {
-                try {
-                    log("verbinde RFCOMM Kanal $ch …")
-                    val s = openSocket(device, ch) ?: continue
-                    s.connect()   // blockiert, wirft bei Fehler
-                    socket = s
-                    out = s.outputStream
-                    log("verbunden (Kanal $ch)")
-                    startReader(s.inputStream)
-                    initSession()
-                    readMode()
-                    return@Thread
-                } catch (e: Exception) {
-                    log("Kanal $ch: ${e.message}")
-                    runCatching { socket?.close() }
+            try {
+                cachedUuids(device)?.let {
+                    log("SDP-Cache: ${if (it.isEmpty()) "(leer)" else it.joinToString { p -> p.uuid.toString() }}")
                 }
-            }
-            log("Verbindung fehlgeschlagen (Buds gekoppelt und wach?)")
+
+                // Strategie 1: direkte Kanäle (29 = Capture-Befund), je 2 Versuche
+                for (ch in CHANNELS) {
+                    for (attempt in 1..2) {
+                        val s = openSocket(device, ch)
+                            ?: openSocket(device, ch, insecure = false)
+                            ?: run { log("Reflection nicht verfügbar"); return@Thread }
+                        try {
+                            s.connect()
+                            socket = s; out = s.outputStream
+                            log("verbunden (Kanal $ch)")
+                            startReader(s.inputStream); initSession(); readMode()
+                            return@Thread
+                        } catch (e: Exception) {
+                            log("Kanal $ch (Versuch $attempt): ${e.message}")
+                            runCatching { s.close() }
+                            runCatching { Thread.sleep(1500) }   // Slot kann kurz belegt sein
+                        }
+                    }
+                }
+
+                // Strategie 2: proprietäre SDP-UUIDs → Service-Record-Connect
+                val customs = cachedUuids(device).orEmpty().map { it.uuid }
+                    .filterNot { it.toString().substring(0, 8).matches(Regex("0000(11|18)[0-9a-f]{2}")) }
+                if (customs.isEmpty()) {
+                    log("keine proprietären SDP-UUIDs im Cache")
+                } else for (u in customs) {
+                    val s = uuidSocket(device, u) ?: continue
+                    try {
+                        s.connect()
+                        socket = s; out = s.outputStream
+                        log("verbunden (UUID $u)")
+                        startReader(s.inputStream); initSession(); readMode()
+                        return@Thread
+                    } catch (e: Exception) {
+                        log("UUID …${u.toString().takeLast(12)}: ${e.message}")
+                        runCatching { s.close() }
+                    }
+                }
+
+                log("VERBINDUNG FEHLGESCHLAGEN.")
+                log("→ Jabra Sound+ in App-Info »Beenden erzwingen«, Buds wach, erneut versuchen")
+                log("→ dann Diagnose-Scan laufen lassen und Log durchsehen")
+            } finally { connecting.set(false) }
         }.apply { name = "jl-connect" }.start()
+    }
+
+    /** Debugging: SDP neu abfragen + Kanäle 1–31 durchprobieren. */
+    @SuppressLint("MissingPermission")
+    fun diagnose(device: BluetoothDevice) {
+        Thread {
+            runCatching {
+                val ok = device.javaClass.getMethod("fetchUuidsWithSdp").invoke(device) as? Boolean ?: false
+                if (ok) log("SDP-Neuabfrage gestellt – UUIDs kommen gleich ins Log …")
+            }
+            log("— Diagnose: scanne Kanäle 1–31 (dauert ~30 s) —")
+            var open = 0
+            for (ch in 1..31) {
+                val s = openSocket(device, ch) ?: continue
+                try {
+                    s.connect()
+                    log("Kanal $ch: OFFEN ✓")
+                    open++
+                    runCatching { s.close() }
+                } catch (_: Exception) { /* zu erwarten */ }
+            }
+            log("Scan fertig: $open offene Kanäle (siehe ✓-Zeilen).")
+        }.apply { name = "jl-diag" }.start()
     }
 
     // ---- Protokoll ----
@@ -81,7 +148,7 @@ class JabraRfcomm(
 
     private fun send(type: Int, topic: ByteArray, payload: ByteArray = byteArrayOf()) {
         val o = out ?: run { log("nicht verbunden"); return }
-        val pkt = ByteArray(3 + 2 + payload.size)
+        val pkt = ByteArray(6 + payload.size)
         pkt[0] = 0x04; pkt[1] = 0x09
         pkt[2] = nextSeq().toByte()
         pkt[3] = type.toByte()
@@ -95,7 +162,7 @@ class JabraRfcomm(
 
     private fun initSession() {
         send(0x8a, byteArrayOf(0x0d, 0x4c), byteArrayOf(0x00, 0x00, 0x02, 0x96.toByte())) // 00000296
-        send(0x47, byteArrayOf(0x02, 0x28), byteArrayOf(0xff.toByte()))                     // ff
+        send(0x47, byteArrayOf(0x02, 0x28), byteArrayOf(0xff.toByte()))                    // ff
         send(0x47, byteArrayOf(0x02, 0x28), byteArrayOf(0x04))
         send(0x47, byteArrayOf(0x02, 0x28), byteArrayOf(0x05))
         send(0x47, byteArrayOf(0x02, 0x28), byteArrayOf(0x15))
@@ -138,7 +205,7 @@ class JabraRfcomm(
             when (type) {
                 0xc7 -> {                       // 09 04 seq c7 13be <wert>
                     if (i + 6 < data.size) {
-                        val topic = (data[i+4].toInt() and 0xff) shl 8 or (data[i+5].toInt() and 0xff)
+                        val topic = (data[i + 4].toInt() and 0xff) shl 8 or (data[i + 5].toInt() and 0xff)
                         if (topic == 0x13be) {
                             val v = data[i + 6].toInt() and 0xff
                             AncMode.entries.firstOrNull { it.wire == v }
@@ -149,8 +216,8 @@ class JabraRfcomm(
                 }
                 0x09 -> {                        // Push: 09 04 00 09 0d4c 09 01 <modus>
                     if (i + 8 < data.size) {
-                        if ((data[i+4].toInt() and 0xff) == 0x0d && (data[i+5].toInt() and 0xff) == 0x4c
-                            && (data[i+6].toInt() and 0xff) == 0x09 && (data[i+7].toInt() and 0xff) == 0x01) {
+                        if ((data[i + 4].toInt() and 0xff) == 0x0d && (data[i + 5].toInt() and 0xff) == 0x4c
+                            && (data[i + 6].toInt() and 0xff) == 0x09 && (data[i + 7].toInt() and 0xff) == 0x01) {
                             val v = data[i + 8].toInt() and 0xff
                             AncMode.entries.firstOrNull { it.wire == v }
                                 ?.let { m -> ui.post { onMode(m) } }
@@ -158,7 +225,7 @@ class JabraRfcomm(
                         i += 9
                     } else { carry = data.copyOfRange(i, data.size); return }
                 }
-                else -> i += 4   // Ack/sonstiges: übergehen (steht im Log)
+                else -> i += 4   // Ack/sonstiges: steht im Log
             }
         }
         carry = if (i < data.size) data.copyOfRange(i, data.size) else ByteArray(0)
