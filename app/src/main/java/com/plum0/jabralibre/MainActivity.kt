@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
     private fun log(msg: String) {
         val ts = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
         logView.append("[$ts] $msg\n")
-        (logView.parent as? ScrollView)?.post { it.fullScroll(View.FOCUS_DOWN) }
+        (logView.parent as? ScrollView)?.let { sv -> sv.post { sv.fullScroll(View.FOCUS_DOWN) } }
     }
 
     override fun onDestroy() { jabra?.close(); super.onDestroy() }

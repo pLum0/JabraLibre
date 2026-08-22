@@ -121,7 +121,8 @@ class JabraRfcomm(
             } catch (e: Exception) {
                 if (!closing) ui.post { log("Verbindung getrennt: ${e.message}") }
             }
-        }.apply { name = "jl-reader" }.start()
+        }.apply { name = "jl-reader" }
+        reader?.start()
     }
 
     /** Wireshark-Verifikation: 09 04 00 09 0d4c 09 01 <mode> */
