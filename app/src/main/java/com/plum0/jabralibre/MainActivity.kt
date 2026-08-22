@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.util.Log
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -27,6 +28,8 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
+
+    private companion object { const val TAG = "JabraLibre" }
 
     private lateinit var logView: TextView
     private lateinit var status: TextView
@@ -66,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1)
         deviceList.adapter = adapter
 
+        findViewById<Button>(R.id.btnShare).setOnClickListener { shareLog() }
         findViewById<Button>(R.id.btnDiag).setOnClickListener {
             val d = device ?: run { log("erst Gerät wählen/verbinden"); return@setOnClickListener }
             jabra?.diagnose(d)
@@ -148,7 +152,18 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == 1 && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) listBonded()
     }
 
+    /** Log exportieren: teilt den gesamten Inhalt (Nextcloud, Mail, …). */
+    private fun shareLog() {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TITLE, "JabraLibre Log")
+            putExtra(Intent.EXTRA_TEXT, logView.text.toString())
+        }
+        startActivity(Intent.createChooser(intent, "Log exportieren"))
+    }
+
     private fun log(msg: String) {
+        Log.d(TAG, msg)   // → adb logcat -s JabraLibre
         val ts = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
         logView.append("[$ts] $msg\n")
         (logView.parent as? ScrollView)?.let { sv -> sv.post { sv.fullScroll(View.FOCUS_DOWN) } }
