@@ -11,6 +11,7 @@ import java.io.OutputStream
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 enum class AncMode(val wire: Int) { OFF(0x01), HEARTHROUGH(0x02), ANC(0x04) }
 
@@ -31,6 +32,9 @@ class JabraRfcomm(
     private val ui = Handler(Looper.getMainLooper())
     @Volatile private var closing = false
     private val connecting = AtomicBoolean(false)
+
+    /** Zeitstempel des letzten Modus-Writes – danach kommen Übergangs-Pushs. */
+    private val lastModeWrite = AtomicLong(0)
 
     val isConnected: Boolean get() = socket?.isConnected == true
 
@@ -146,7 +150,7 @@ class JabraRfcomm(
         return s
     }
 
-    private fun send(type: Int, topic: ByteArray, payload: ByteArray = byteArrayOf()) {
+    @Synchronized private fun send(type: Int, topic: ByteArray, payload: ByteArray = byteArrayOf()) {
         val o = out ?: run { log("nicht verbunden"); return }
         val pkt = ByteArray(6 + payload.size)
         pkt[0] = 0x04; pkt[1] = 0x09
@@ -170,6 +174,10 @@ class JabraRfcomm(
 
     fun setMode(mode: AncMode) {
         send(0x88, TOPIC_MODE, byteArrayOf(0x01, mode.wire.toByte()))
+        // Die Buds pushen nach einem Write erst einen Übergangsstatus (alter Wert),
+        // der echte Modus kommt erst auf Anfrage → Read-Back wie die Original-App.
+        lastModeWrite.set(System.currentTimeMillis())
+        ui.postDelayed({ readMode() }, 600)
     }
 
     fun readMode() { send(0x47, TOPIC_MODE, byteArrayOf(0x01)) }
@@ -219,8 +227,13 @@ class JabraRfcomm(
                         if ((data[i + 4].toInt() and 0xff) == 0x0d && (data[i + 5].toInt() and 0xff) == 0x4c
                             && (data[i + 6].toInt() and 0xff) == 0x09 && (data[i + 7].toInt() and 0xff) == 0x01) {
                             val v = data[i + 8].toInt() and 0xff
-                            AncMode.entries.firstOrNull { it.wire == v }
-                                ?.let { m -> ui.post { onMode(m) } }
+                            val sinceOwnWrite = System.currentTimeMillis() - lastModeWrite.get()
+                            if (sinceOwnWrite < 1500) {
+                                log("Push ignoriert (Übergangsstatus nach eigenem Write)")
+                            } else {
+                                AncMode.entries.firstOrNull { it.wire == v }
+                                    ?.let { m -> ui.post { onMode(m) } }
+                            }
                         }
                         i += 9
                     } else { carry = data.copyOfRange(i, data.size); return }
