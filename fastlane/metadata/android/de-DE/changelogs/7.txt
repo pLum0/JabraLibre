@@ -1,0 +1,12 @@
+Überarbeitete Oberfläche: drei große Modus-Schalter statt eines rohen
+Protokoll-Logs, das nun im eingeklappten Diagnose-Bereich steckt. Neues Icon,
+helles und dunkles Design, deutsche Übersetzung.
+
+Neu: Schnelleinstellungs-Tile, das ANC / HearThrough / Aus mit einem Tipp
+weiterschaltet, auch im Sperrbildschirm.
+
+Neu: alle drei Akkustände — linker Hörer, rechter Hörer und Ladeetui.
+
+Die App behauptet keinen Modus mehr, den die Hörer nie bestätigt haben, meldet
+innerhalb einer Sekunde, wenn die Hörer gar nicht verbunden sind, und verbindet
+von selbst neu, sobald sie aus dem Etui kommen.

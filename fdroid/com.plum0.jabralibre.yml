@@ -1,0 +1,49 @@
+# Metadata for inclusion in F-Droid.
+#
+# This file does nothing inside this repository — it belongs in F-Droid's own
+# metadata repository. To submit the app:
+#
+#   1. fork https://gitlab.com/fdroid/fdroiddata
+#   2. copy this file to metadata/com.plum0.jabralibre.yml
+#   3. run `fdroid lint com.plum0.jabralibre` and `fdroid build com.plum0.jabralibre`
+#   4. open a merge request with the "App inclusion" template
+#      (fdroid/INCLUSION_REQUEST.md in this repo is the filled-in checklist)
+#
+# The listing texts and images are NOT repeated here on purpose: F-Droid reads
+# them from fastlane/metadata/android/ in this repository, at the commit being
+# built. So the fastlane files must be committed *before* the tag F-Droid builds.
+#
+# No AntiFeatures apply: no network access of any kind, no ads, no tracking,
+# no non-free dependencies or services.
+
+Categories:
+  - Connectivity
+  - Remote Controller
+License: GPL-3.0-or-later
+AuthorName: Rouven Volkmann
+WebSite: https://github.com/pLum0/JabraLibre
+SourceCode: https://github.com/pLum0/JabraLibre
+IssueTracker: https://github.com/pLum0/JabraLibre/issues
+Changelog: https://github.com/pLum0/JabraLibre/releases
+
+AutoName: JabraLibre
+
+RepoType: git
+Repo: https://github.com/pLum0/JabraLibre.git
+
+Builds:
+  # Reviewers prefer an immutable reference: once v0.3.0 is tagged, replace the
+  # tag below with the full commit SHA it points at (`git rev-parse v0.3.0`).
+  - versionName: 0.3.0
+    versionCode: 7
+    commit: v0.3.0
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+# Anchored so only release tags match — CI also pushes nothing else, but a bare
+# "Tags" would happily pick up any future tag.
+UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+$
+CurrentVersion: 0.3.0
+CurrentVersionCode: 7

@@ -9,8 +9,8 @@ android {
         applicationId = "com.plum0.jabralibre"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.2.4"
+        versionCode = 7
+        versionName = "0.3.0"
     }
     signingConfigs {
         getByName("debug") {
@@ -24,7 +24,15 @@ android {
     }
     buildTypes {
         debug { signingConfig = signingConfigs.getByName("debug") }
+        // F-Droid builds this one and signs it with their own key, so no
+        // signingConfig here on purpose: `assembleRelease` stays unsigned.
         release { isMinifyEnabled = false }
+    }
+    // The dependency metadata block AGP adds is an opaque, Google-signed blob.
+    // Leaving it out keeps the APK reproducible from source.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

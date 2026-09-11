@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="state_idle">Nicht verbunden</string>
+    <string name="state_connecting">Verbinde …</string>
+    <string name="state_connected">Verbunden</string>
+    <string name="state_failed">Verbindung fehlgeschlagen</string>
+    <string name="state_no_device">Kein Jabra-Gerät gekoppelt</string>
+    <string name="state_no_permission">Bluetooth-Berechtigung nötig</string>
+
+    <string name="mode_anc">Geräuschunterdrückung</string>
+    <string name="mode_ht">HearThrough</string>
+    <string name="mode_off">Aus</string>
+
+    <string name="action_reconnect">Neu verbinden</string>
+    <string name="action_grant">Berechtigung erteilen</string>
+    <string name="action_choose_device">Gerät wählen</string>
+
+    <string name="diag_title">Diagnose</string>
+    <string name="diag_hint">Rohes Protokoll-Log — nur für die Entwicklung nötig.</string>
+    <string name="diag_scan_channels">Kanal-Scan</string>
+    <string name="diag_scan_topics">Topic-Scan</string>
+    <string name="diag_refresh">Modus neu lesen</string>
+    <string name="diag_export">Log exportieren</string>
+    <string name="diag_clear">Log leeren</string>
+    <string name="diag_share_title">JabraLibre-Log</string>
+    <string name="diag_share_chooser">Log exportieren</string>
+
+    <string name="tile_label">Jabra ANC</string>
+    <string name="tile_unknown">Antippen zum Verbinden</string>
+    <string name="bat_case">ETUI</string>
+    <string name="state_unavailable">Earbuds nicht verbunden</string>
+    <string name="state_bt_off">Bluetooth ist aus</string>
+</resources>

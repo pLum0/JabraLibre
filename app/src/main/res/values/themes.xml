@@ -1,3 +1,23 @@
-<resources>
-    <style name="Theme.JabraLibre" parent="Theme.AppCompat.DayNight.DarkActionBar" />
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.JabraLibre" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorAccent">@color/brand_green</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+    </style>
+
+    <!-- small, low-key buttons for the diagnostics drawer -->
+    <style name="DiagButton" parent="Widget.AppCompat.Button.Borderless">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
 </resources>

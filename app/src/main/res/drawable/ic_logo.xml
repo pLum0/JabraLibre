@@ -2,26 +2,23 @@
 <!-- JabraLibre mark: one earbud, sound arriving at it.
      Generated geometry — see docs/icon.py in the commit history. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108.00" android:viewportHeight="108.00">
-<group android:pivotX="54" android:pivotY="54"
-    android:scaleX="0.846" android:scaleY="0.846">
-<group android:translateX="8.90" android:translateY="18.59">
+    android:width="58dp" android:height="55dp"
+    android:viewportWidth="58.00" android:viewportHeight="55.00">
+<group android:translateX="-18.70" android:translateY="-6.71">
     <group android:translateX="14" android:translateY="16"
         android:scaleX="0.95" android:scaleY="0.95">
-        <path android:fillColor="#E6EDF3"
+        <path android:fillColor="@color/text_primary"
             android:pathData="M6,43 L6,30 C4,15 9,3 19,2 C30,1 35.5,9 35.5,17.5 C35.5,27 29,34 21,34.5 L20,34.5 L20,43 a5,5 0 0 1 -5,5 L11,48 a5,5 0 0 1 -5,-5 Z" />
         <path android:pathData="M13.5,24 C12,16 16,9.5 23.5,9"
-            android:strokeColor="#102A43" android:strokeWidth="4.4"
+            android:strokeColor="@color/bg" android:strokeWidth="4.4"
             android:strokeLineCap="round" android:fillColor="#00000000" />
     </group>
     <path android:pathData="M58.97,15.70 A26.0,26.0 0 0 1 58.97,50.50"
-        android:strokeColor="#4ADE80" android:strokeWidth="6.2"
+        android:strokeColor="@color/brand_green" android:strokeWidth="6.2"
         android:strokeLineCap="round" android:fillColor="#00000000" />
     <path android:pathData="M64.92,10.35 A34.0,34.0 0 0 1 64.92,55.85"
-        android:strokeColor="#4ADE80" android:strokeWidth="6.2"
+        android:strokeColor="@color/brand_green" android:strokeWidth="6.2"
         android:strokeLineCap="round" android:fillColor="#00000000"
         android:strokeAlpha="0.55" />
-</group>
 </group>
 </vector>

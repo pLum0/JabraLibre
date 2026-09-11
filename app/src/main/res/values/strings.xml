@@ -1,1 +1,44 @@
-<resources><string name="app_name">JabraLibre</string></resources>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JabraLibre</string>
+
+    <!-- connection state -->
+    <string name="state_idle">Not connected</string>
+    <string name="state_connecting">Connecting…</string>
+    <string name="state_connected">Connected</string>
+    <string name="state_failed">Connection failed</string>
+    <string name="state_no_device">No Jabra device paired</string>
+    <string name="state_no_permission">Bluetooth permission needed</string>
+
+    <!-- modes -->
+    <string name="mode_anc">Noise Cancelling</string>
+    <string name="mode_ht">HearThrough</string>
+    <string name="mode_off">Off</string>
+
+    <!-- actions -->
+    <string name="action_reconnect">Reconnect</string>
+    <string name="action_grant">Grant permission</string>
+    <string name="action_choose_device">Choose device</string>
+
+    <!-- diagnostics -->
+    <string name="diag_title">Diagnostics</string>
+    <string name="diag_hint">Raw protocol log — only needed for development.</string>
+    <string name="diag_scan_channels">Channel scan</string>
+    <string name="diag_scan_topics">Topic scan</string>
+    <string name="diag_refresh">Re-read mode</string>
+    <string name="diag_export">Export log</string>
+    <string name="diag_clear">Clear log</string>
+    <string name="diag_share_title">JabraLibre log</string>
+    <string name="diag_share_chooser">Export log</string>
+
+    <!-- quick settings tile -->
+    <string name="tile_label">Jabra ANC</string>
+    <string name="tile_unknown">Tap to connect</string>
+    <string name="bat_left">L</string>
+    <string name="bat_right">R</string>
+    <string name="bat_case">CASE</string>
+    <string name="bat_unknown">–</string>
+    <string name="bat_percent">%1$d\u202f%%</string>
+    <string name="state_unavailable">Earbuds not connected</string>
+    <string name="state_bt_off">Bluetooth is off</string>
+</resources>

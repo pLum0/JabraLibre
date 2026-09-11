@@ -1,0 +1,12 @@
+Reworked interface: three large mode buttons instead of a raw protocol log,
+which now lives in a collapsed Diagnostics section. New icon, dark and light
+themes, German translation.
+
+New: Quick Settings tile that cycles ANC / HearThrough / Off in one tap, also
+from the lock screen.
+
+New: all three battery levels — left bud, right bud and charging case.
+
+The app no longer claims a mode the earbuds never confirmed, says so within a
+second when the buds are not connected at all, and reconnects by itself when
+you take them out of the case.

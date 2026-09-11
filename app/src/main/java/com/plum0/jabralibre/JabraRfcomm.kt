@@ -15,14 +15,42 @@ import java.util.concurrent.atomic.AtomicLong
 
 enum class AncMode(val wire: Int) { OFF(0x01), HEARTHROUGH(0x02), ANC(0x04) }
 
+enum class ConnState {
+    IDLE,
+    CONNECTING,
+    CONNECTED,
+    /** Tried and rejected — buds awake but the channel would not open. */
+    FAILED,
+    /** The buds are not connected to the phone at all (in the case, or off). */
+    UNAVAILABLE
+}
+
 class JabraRfcomm(
     private val log: (String) -> Unit,
-    private val onMode: (AncMode) -> Unit
+    private val onMode: (AncMode) -> Unit,
+    private val onState: (ConnState) -> Unit = {},
+    private val onBattery: (Battery) -> Unit = {}
 ) {
     companion object {
-        // aus dem HCI-Capture: DLCI 0x3a → Server-Kanal 29
+        // from the HCI capture: DLCI 0x3a -> server channel 29
         private val TOPIC_MODE = byteArrayOf(0x13, 0xbe.toByte())
+        private val TOPIC_BATTERY = byteArrayOf(0x12, 0x02)
+        /** Length of the topic-1202 battery record (header 5 + 2 entries x 3). */
+        private const val BATTERY_LEN = 11
         private val CHANNELS = intArrayOf(29, 28, 30)
+
+        /**
+         * Whether the phone currently holds a Bluetooth link to the buds.
+         * Hidden API, so treat "cannot tell" as "go ahead and try" — the retry
+         * ladder is what makes this app connect where Sound+ often does not.
+         */
+        fun hasBluetoothLink(device: BluetoothDevice): Boolean =
+            runCatching {
+                device.javaClass.getMethod("isConnected").invoke(device) as? Boolean
+            }.getOrNull() ?: true
+
+        /** Topics seen in the capture — starting points for the probe. */
+        val KNOWN_TOPICS = intArrayOf(0x13be, 0x1202, 0x0d4c, 0x0228)
     }
 
     private var socket: BluetoothSocket? = null
@@ -33,16 +61,16 @@ class JabraRfcomm(
     @Volatile private var closing = false
     private val connecting = AtomicBoolean(false)
 
-    /** Zeitstempel des letzten Modus-Writes – danach kommen Übergangs-Pushs. */
+    /** Timestamp of the last mode write — transition pushes follow it. */
     private val lastModeWrite = AtomicLong(0)
 
     val isConnected: Boolean get() = socket?.isConnected == true
 
-    // ---------- Socket-Beschaffung ----------
+    // ---------- obtaining a socket ----------
 
     /**
-     * createInsecureRfcommSocket(int)/createRfcommSocket(int) sind versteckte
-     * Android-APIs (nicht im SDK) → per Reflection. null, falls nicht aufrufbar.
+     * createInsecureRfcommSocket(int)/createRfcommSocket(int) are hidden
+     * Android APIs (not in the SDK) -> reflection. null if not callable.
      */
     private fun openSocket(device: BluetoothDevice, channel: Int, insecure: Boolean = true): BluetoothSocket? =
         runCatching {
@@ -57,54 +85,68 @@ class JabraRfcomm(
             device.javaClass.getMethod("getUuids").invoke(device) as? Array<ParcelUuid>
         }.getOrNull()?.toList()
 
-    /** Öffentlichen Weg: SDP-Service-Record → Android löst den Kanal selbst auf. */
+    /** Public path: SDP service record -> Android resolves the channel itself. */
     private fun uuidSocket(device: BluetoothDevice, uuid: UUID): BluetoothSocket? =
         runCatching { device.createRfcommSocketToServiceRecord(uuid) }.getOrNull()
 
-    // ---------- Verbinden ----------
+    // ---------- connecting ----------
 
     @SuppressLint("MissingPermission")
     fun connect(device: BluetoothDevice) {
         if (!connecting.compareAndSet(false, true)) return
         closing = false
+        if (!hasBluetoothLink(device)) {
+            // Without an ACL link every channel attempt fails on read anyway,
+            // and the ladder would spend ~45 s doing it.
+            log("earbuds are not connected to the phone — nothing to talk to")
+            connecting.set(false)
+            onState(ConnState.UNAVAILABLE)
+            return
+        }
+        onState(ConnState.CONNECTING)
         Thread {
+            var ok = false
             try {
                 cachedUuids(device)?.let {
-                    log("SDP-Cache: ${if (it.isEmpty()) "(leer)" else it.joinToString { p -> p.uuid.toString() }}")
+                    log("SDP cache: ${if (it.isEmpty()) "(empty)" else it.joinToString { p -> p.uuid.toString() }}")
                 }
 
-                // Strategie 1: direkte Kanäle (29 = Capture-Befund), je 2 Versuche
+                // strategy 1: direct channels (29 = capture finding), 2 tries each
                 for (ch in CHANNELS) {
                     for (attempt in 1..2) {
                         val s = openSocket(device, ch)
                             ?: openSocket(device, ch, insecure = false)
-                            ?: run { log("Reflection nicht verfügbar"); return@Thread }
+                            ?: run { log("reflection unavailable"); return@Thread }
                         try {
                             s.connect()
                             socket = s; out = s.outputStream
-                            log("verbunden (Kanal $ch)")
-                            startReader(s.inputStream); initSession(); readMode()
+                            log("connected (channel $ch)")
+                            ok = true
+                            onState(ConnState.CONNECTED)
+                            startReader(s.inputStream); initSession(); readMode(); readBattery()
                             return@Thread
                         } catch (e: Exception) {
-                            log("Kanal $ch (Versuch $attempt): ${e.message}")
+                            log("channel $ch (try $attempt): ${e.message}")
                             runCatching { s.close() }
-                            runCatching { Thread.sleep(1500) }   // Slot kann kurz belegt sein
+                            runCatching { Thread.sleep(1500) }   // slot may be busy briefly
                         }
                     }
                 }
 
-                // Strategie 2: proprietäre SDP-UUIDs → Service-Record-Connect
+                // strategy 2: proprietary SDP UUIDs -> service record connect
                 val customs = cachedUuids(device).orEmpty().map { it.uuid }
                     .filterNot { it.toString().substring(0, 8).matches(Regex("0000(11|18)[0-9a-f]{2}")) }
                 if (customs.isEmpty()) {
-                    log("keine proprietären SDP-UUIDs im Cache")
+                    log("no proprietary SDP UUIDs in the cache")
                 } else for (u in customs) {
                     val s = uuidSocket(device, u) ?: continue
                     try {
                         s.connect()
                         socket = s; out = s.outputStream
-                        log("verbunden (UUID $u)")
-                        startReader(s.inputStream); initSession(); readMode()
+                        log("connected (UUID $u)")
+                        ok = true
+                        onState(ConnState.CONNECTED)
+                        startReader(s.inputStream); initSession(); readMode(); readBattery()
                         return@Thread
                     } catch (e: Exception) {
                         log("UUID …${u.toString().takeLast(12)}: ${e.message}")
@@ -112,37 +154,40 @@ class JabraRfcomm(
                     }
                 }
 
-                log("VERBINDUNG FEHLGESCHLAGEN.")
-                log("→ Jabra Sound+ in App-Info »Beenden erzwingen«, Buds wach, erneut versuchen")
-                log("→ dann Diagnose-Scan laufen lassen und Log durchsehen")
-            } finally { connecting.set(false) }
+                log("CONNECTION FAILED.")
+                log("→ force-stop Jabra Sound+ in app info, wake the buds, try again")
+                log("→ then run the channel scan and read through the log")
+            } finally {
+                connecting.set(false)
+                if (!ok) onState(ConnState.FAILED)
+            }
         }.apply { name = "jl-connect" }.start()
     }
 
-    /** Debugging: SDP neu abfragen + Kanäle 1–31 durchprobieren. */
+    /** Debugging: re-query SDP + try channels 1-31. */
     @SuppressLint("MissingPermission")
     fun diagnose(device: BluetoothDevice) {
         Thread {
             runCatching {
                 val ok = device.javaClass.getMethod("fetchUuidsWithSdp").invoke(device) as? Boolean ?: false
-                if (ok) log("SDP-Neuabfrage gestellt – UUIDs kommen gleich ins Log …")
+                if (ok) log("SDP re-query sent – UUIDs will show up in the log shortly …")
             }
-            log("— Diagnose: scanne Kanäle 1–31 (dauert ~30 s) —")
+            log("— diagnostics: scanning channels 1-31 (takes ~30 s) —")
             var open = 0
             for (ch in 1..31) {
                 val s = openSocket(device, ch) ?: continue
                 try {
                     s.connect()
-                    log("Kanal $ch: OFFEN ✓")
+                    log("channel $ch: OPEN ✓")
                     open++
                     runCatching { s.close() }
-                } catch (_: Exception) { /* zu erwarten */ }
+                } catch (_: Exception) { /* expected */ }
             }
-            log("Scan fertig: $open offene Kanäle (siehe ✓-Zeilen).")
+            log("scan done: $open open channels (see the ✓ lines).")
         }.apply { name = "jl-diag" }.start()
     }
 
-    // ---- Protokoll ----
+    // ---- protocol ----
 
     private fun nextSeq(): Int {
         var s: Int
@@ -150,8 +195,10 @@ class JabraRfcomm(
         return s
     }
 
-    @Synchronized private fun send(type: Int, topic: ByteArray, payload: ByteArray = byteArrayOf()) {
-        val o = out ?: run { log("nicht verbunden"); return }
+    @Synchronized private fun send(
+        type: Int, topic: ByteArray, payload: ByteArray = byteArrayOf(), quiet: Boolean = false
+    ) {
+        val o = out ?: run { log("not connected"); return }
         val pkt = ByteArray(6 + payload.size)
         pkt[0] = 0x04; pkt[1] = 0x09
         pkt[2] = nextSeq().toByte()
@@ -160,8 +207,8 @@ class JabraRfcomm(
         payload.copyInto(pkt, 6)
         try {
             o.write(pkt); o.flush()
-            log(">> ${pkt.toHexString()}")
-        } catch (e: Exception) { log("senden fehlgeschlagen: ${e.message}") }
+            if (!quiet) log(">> ${pkt.toHexString()}")
+        } catch (e: Exception) { log("send failed: ${e.message}") }
     }
 
     private fun initSession() {
@@ -174,15 +221,94 @@ class JabraRfcomm(
 
     fun setMode(mode: AncMode) {
         send(0x88, TOPIC_MODE, byteArrayOf(0x01, mode.wire.toByte()))
-        // Die Buds pushen nach einem Write erst einen Übergangsstatus (alter Wert),
-        // der echte Modus kommt erst auf Anfrage → Read-Back wie die Original-App.
+        // After a write the buds first push a transition status (the old value);
+        // the real mode only comes on request -> read back like the original app.
         lastModeWrite.set(System.currentTimeMillis())
         ui.postDelayed({ readMode() }, 600)
     }
 
     fun readMode() { send(0x47, TOPIC_MODE, byteArrayOf(0x01)) }
 
-    // ---- Empfang ----
+    fun readBattery() { send(0x47, TOPIC_BATTERY, byteArrayOf(0x01)) }
+
+    // ---- protocol exploration (battery / EQ hunting) ----
+
+    /**
+     * Read-only sweep. The reply echoes the topic (`09 04 <seq> c7 <topic> …`),
+     * so everything that answers shows up in the raw `<<` lines — no request
+     * bookkeeping needed. Only command type 0x47 (read) is used.
+     */
+    fun probeIndices(topic: Int, indices: IntRange = 0x00..0x2f, delayMs: Long = 60) {
+        Thread {
+            log("— probe: topic ${"%04x".format(topic)} indices " +
+                "${"%02x".format(indices.first)}…${"%02x".format(indices.last)} —")
+            val t = byteArrayOf((topic shr 8).toByte(), (topic and 0xff).toByte())
+            for (i in indices) {
+                if (!isConnected) { log("probe aborted: not connected"); return@Thread }
+                send(0x47, t, byteArrayOf(i.toByte()))   // logged: the seq maps reply -> index
+                runCatching { Thread.sleep(delayMs) }
+            }
+            log("— probe done (topic ${"%04x".format(topic)}) —")
+        }.apply { name = "jl-probe-idx" }.start()
+    }
+
+    /** Sweeping the topic id with a fixed index. */
+    fun probeTopics(from: Int, to: Int, index: Int = 0x01, delayMs: Long = 40) {
+        Thread {
+            log("— probe: topics ${"%04x".format(from)}…${"%04x".format(to)} index ${"%02x".format(index)} —")
+            for (t in from..to) {
+                if (!isConnected) { log("probe aborted: not connected"); return@Thread }
+                send(0x47, byteArrayOf((t shr 8).toByte(), (t and 0xff).toByte()), byteArrayOf(index.toByte()))
+                runCatching { Thread.sleep(delayMs) }
+            }
+            log("— probe done (topics ${"%04x".format(from)}…${"%04x".format(to)}) —")
+        }.apply { name = "jl-probe-topic" }.start()
+    }
+
+    /**
+     * Index `ff` asks a topic for its directory: topic 0228 answers
+     * `c9 02 28 04 05 15`, i.e. "my valid indices are 04, 05, 15".
+     * Sweeping `ff` is therefore the cheapest way to find which topics exist.
+     */
+    fun probeDirectories(from: Int, to: Int, delayMs: Long = 40) {
+        Thread {
+            log("— probe: directories ${"%04x".format(from)}…${"%04x".format(to)} (index ff) —")
+            for (t in from..to) {
+                if (!isConnected) { log("probe aborted: not connected"); return@Thread }
+                send(0x47, byteArrayOf((t shr 8).toByte(), (t and 0xff).toByte()), byteArrayOf(0xff.toByte()))
+                runCatching { Thread.sleep(delayMs) }
+            }
+            log("— probe done (directories ${"%04x".format(from)}…${"%04x".format(to)}) —")
+        }.apply { name = "jl-probe-dir" }.start()
+    }
+
+    /**
+     * Re-subscribe with a different notification mask. Session init uses
+     * `00000296`; the mode pushes arrive as class `09` inside that mask, so a
+     * wider mask is the cheapest way to find out what else the buds volunteer.
+     */
+    fun subscribe(mask: Long) {
+        send(0x8a, byteArrayOf(0x0d, 0x4c), byteArrayOf(
+            (mask shr 24 and 0xff).toByte(), (mask shr 16 and 0xff).toByte(),
+            (mask shr 8 and 0xff).toByte(), (mask and 0xff).toByte()
+        ))
+        log("subscription mask set to ${"%08x".format(mask)}")
+    }
+
+    /** Default sweep: directory + every index of the topics we already know. */
+    fun probeKnownTopics() {
+        Thread {
+            for (t in KNOWN_TOPICS) {
+                if (!isConnected) return@Thread
+                send(0x47, byteArrayOf((t shr 8).toByte(), (t and 0xff).toByte()), byteArrayOf(0xff.toByte()))
+                runCatching { Thread.sleep(400) }
+                probeIndices(t, 0x00..0x2f)
+                runCatching { Thread.sleep(0x30 * 60L + 600) }
+            }
+        }.apply { name = "jl-probe-all" }.start()
+    }
+
+    // ---- receiving ----
 
     private fun startReader(input: InputStream) {
         reader = Thread {
@@ -193,14 +319,18 @@ class JabraRfcomm(
                     if (n < 0) break
                     if (n > 0) handle(buf.copyOf(n))
                 }
+                if (!closing) { log("connection closed by the buds"); onState(ConnState.IDLE) }
             } catch (e: Exception) {
-                if (!closing) ui.post { log("Verbindung getrennt: ${e.message}") }
+                if (!closing) {
+                    log("connection lost: ${e.message}")
+                    onState(ConnState.IDLE)
+                }
             }
         }.apply { name = "jl-reader" }
         reader?.start()
     }
 
-    /** Wireshark-Verifikation: 09 04 00 09 0d4c 09 01 <mode> */
+    /** Wireshark-verified: 09 04 00 09 0d4c 09 01 <mode> */
     private var carry = ByteArray(0)
 
     private fun handle(chunk: ByteArray) {
@@ -211,7 +341,7 @@ class JabraRfcomm(
             if (data[i] != 0x09.toByte() || data[i + 1] != 0x04.toByte()) { i++; continue }
             val type = data[i + 3].toInt() and 0xff
             when (type) {
-                0xc7 -> {                       // 09 04 seq c7 13be <wert>
+                0xc7 -> {                       // 09 04 seq c7 13be <value>
                     if (i + 6 < data.size) {
                         val topic = (data[i + 4].toInt() and 0xff) shl 8 or (data[i + 5].toInt() and 0xff)
                         if (topic == 0x13be) {
@@ -222,14 +352,14 @@ class JabraRfcomm(
                         i += 7
                     } else { carry = data.copyOfRange(i, data.size); return }
                 }
-                0x09 -> {                        // Push: 09 04 00 09 0d4c 09 01 <modus>
+                0x09 -> {                        // push: 09 04 00 09 0d4c 09 01 <mode>
                     if (i + 8 < data.size) {
                         if ((data[i + 4].toInt() and 0xff) == 0x0d && (data[i + 5].toInt() and 0xff) == 0x4c
                             && (data[i + 6].toInt() and 0xff) == 0x09 && (data[i + 7].toInt() and 0xff) == 0x01) {
                             val v = data[i + 8].toInt() and 0xff
                             val sinceOwnWrite = System.currentTimeMillis() - lastModeWrite.get()
                             if (sinceOwnWrite < 1500) {
-                                log("Push ignoriert (Übergangsstatus nach eigenem Write)")
+                                log("push ignored (transition status after our own write)")
                             } else {
                                 AncMode.entries.firstOrNull { it.wire == v }
                                     ?.let { m -> ui.post { onMode(m) } }
@@ -238,7 +368,20 @@ class JabraRfcomm(
                         i += 9
                     } else { carry = data.copyOfRange(i, data.size); return }
                 }
-                else -> i += 4   // Ack/sonstiges: steht im Log
+                0xd1, 0x11 -> {                  // battery: 09 04 seq <d1|11> 1202 <11 bytes>
+                    if (i + 5 < data.size) {
+                        val topic = (data[i + 4].toInt() and 0xff) shl 8 or (data[i + 5].toInt() and 0xff)
+                        if (topic == 0x1202) {
+                            if (i + 6 + BATTERY_LEN > data.size) {
+                                carry = data.copyOfRange(i, data.size); return
+                            }
+                            Battery.parse(data.copyOfRange(i + 6, i + 6 + BATTERY_LEN))
+                                ?.let { b -> ui.post { onBattery(b) } }
+                            i += 6 + BATTERY_LEN
+                        } else i += 4
+                    } else { carry = data.copyOfRange(i, data.size); return }
+                }
+                else -> i += 4   // ack/other: it is in the log
             }
         }
         carry = if (i < data.size) data.copyOfRange(i, data.size) else ByteArray(0)
@@ -248,6 +391,7 @@ class JabraRfcomm(
         closing = true
         runCatching { socket?.close() }
         socket = null; out = null
+        onState(ConnState.IDLE)
     }
 }
 

@@ -1,0 +1,47 @@
+Ein minimaler, vollständig offline arbeitender Ersatz für die Jabra-Sound+-App,
+gebaut um die eine Funktion, die am wichtigsten ist: das Umschalten zwischen
+Geräuschunterdrückung, HearThrough und Aus.
+
+Die Taste am Ohrhörer schaltet diese Modi bereits durch — allerdings nur am
+linken Hörer. Wer nur den rechten im Ohr hat, etwa im Bett, kann gar nicht
+umschalten. Genau dafür ist diese App da, und deshalb bringt sie ein
+Schnelleinstellungs-Tile mit: Leiste herunterziehen, ein Tipp schaltet weiter.
+Das funktioniert auch im Sperrbildschirm, die App muss man also nie öffnen.
+
+<b>Funktionen</b>
+
+<ul>
+  <li>Geräuschunterdrückung / HearThrough / Aus umschalten, in der App oder per Tile</li>
+  <li>Zeigt alle drei Akkustände einzeln: linker Hörer, rechter Hörer, Ladeetui</li>
+  <li>Erkennt Moduswechsel, die man über die Taste am Ohrhörer macht</li>
+  <li>Verbindet von selbst neu, wenn die Hörer aus dem Etui kommen</li>
+  <li>Sagt klar, wenn die Hörer nicht erreichbar sind, statt etwas vorzutäuschen</li>
+  <li>Deutsch und Englisch</li>
+</ul>
+
+<b>Offline von Grund auf</b>
+
+Die App hat überhaupt keine INTERNET-Berechtigung — keine ungenutzte, sondern
+gar keine. Sie kann nicht nach Hause telefonieren, es gibt kein Konto, kein
+Tracking, keine Google Play Services, keine Analytics. Sie redet über Bluetooth
+mit den Ohrhörern und mit sonst nichts. Deshalb gibt es auch keine
+Firmware-Aktualisierung: selbst eine passive Update-Prüfung bräuchte
+Netzzugriff, und das würde den Sinn der App zunichtemachen.
+
+<b>Wie es funktioniert</b>
+
+Der Elite 10 spricht mit Sound+ über Bluetooth Classic RFCOMM. Das Protokoll
+wurde aus einer Aufzeichnung des Bluetooth-Verkehrs des eigenen Telefons
+rekonstruiert. Die Ergebnisse sind in der README des Projekts dokumentiert —
+jeder kann also nachlesen, was die App tut, oder darauf aufbauen.
+
+<b>Unterstützte Geräte</b>
+
+Alles hier wurde mit genau einem Paar Jabra Elite 10 entwickelt und getestet.
+Mit anderen Jabra-Ohrhörern, die dasselbe Protokoll sprechen, kann es
+funktionieren — oder eben nicht: andere Generationen nutzen andere Übertragungs-
+wege und andere Kennungen. Falls es mit deinen nicht klappt: die App hat einen
+Diagnose-Bereich, der ein Protokoll-Log exportiert. Damit und mit der genauen
+Modellbezeichnung ein Issue aufmachen, dann kann Unterstützung ergänzt werden.
+
+Nicht mit Jabra / GN Audio verbunden.

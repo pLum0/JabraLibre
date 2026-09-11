@@ -1,0 +1,46 @@
+A minimal, fully offline replacement for the Jabra Sound+ app, built around the
+one feature that matters most: switching between Noise Cancelling, HearThrough
+and Off.
+
+The earbud button already cycles those modes — as long as you are wearing the
+left bud. Listening with only the right one, in bed for instance, leaves no way
+to switch. That is what this app is for, and why it ships a Quick Settings tile:
+pull down the shade, one tap cycles the modes. It works on the lock screen, so
+you never have to open the app at all.
+
+<b>Features</b>
+
+<ul>
+  <li>Switch Noise Cancelling / HearThrough / Off, from the app or a Quick Settings tile</li>
+  <li>Shows all three battery levels separately: left bud, right bud and charging case</li>
+  <li>Picks up mode changes you make with the earbud button</li>
+  <li>Reconnects on its own when you take the buds out of the case</li>
+  <li>Says plainly when the buds are not reachable instead of pretending</li>
+  <li>English and German</li>
+</ul>
+
+<b>Offline by design</b>
+
+The app has no INTERNET permission at all — not an unused one, none. It cannot
+phone home, there is no account, no tracking, no Google Play Services, and no
+analytics. It talks to the earbuds over Bluetooth and to nothing else. That is
+also why there is no firmware updater: even a passive update check would need
+network access, and that would defeat the point.
+
+<b>How it works</b>
+
+The Elite 10 talks to Sound+ over Bluetooth Classic RFCOMM, using a protocol
+that was reverse-engineered from a capture of the phone's own Bluetooth traffic.
+The findings are documented in the project's README so anyone can check what the
+app does, or build on it.
+
+<b>Device support</b>
+
+Everything here was developed and tested against one single pair of Jabra
+Elite 10. It may work on other Jabra earbuds that speak the same protocol, and
+it may equally well not: other generations use different transports and
+different identifiers. If it does not work with yours, the app has a Diagnostics
+section that exports a protocol log — open an issue with that log and the exact
+model, and support can be added.
+
+Not affiliated with Jabra or GN Audio.
