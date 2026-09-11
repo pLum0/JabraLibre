@@ -39,10 +39,10 @@ AllowedAPKSigningKeys: 9dc5569c5236dc1c413dcf46cfff47983def45245e4562540be4ba7fb
 
 Builds:
   # An immutable reference, which reviewers prefer over a tag: this is what
-  # v0.3.4 points at (`git rev-parse v0.3.4`).
-  - versionName: 0.3.4
-    versionCode: 11
-    commit: 9999d8699caea76ad1321f67787086d3884263e9
+  # v0.3.5 points at (`git rev-parse v0.3.5`).
+  - versionName: 0.3.5
+    versionCode: 12
+    commit: c672a6f13d9dceb5ddb977d481cd961eabdad9cd
     subdir: app
     gradle:
       - yes
@@ -51,5 +51,5 @@ AutoUpdateMode: Version
 # Anchored so only release tags match — CI also pushes nothing else, but a bare
 # "Tags" would happily pick up any future tag.
 UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+$
-CurrentVersion: 0.3.4
-CurrentVersionCode: 11
+CurrentVersion: 0.3.5
+CurrentVersionCode: 12
