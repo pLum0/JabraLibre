@@ -52,6 +52,18 @@ jobs:
           fi
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
 
+      - name: Ist dieses Release schon veroeffentlicht?
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.ver.outputs.v }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v${{ steps.ver.outputs.v }} is already released — not touching its APK."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Keine Signatur konfiguriert
         if: env.HAS_KEYSTORE != 'true'
         run: |
@@ -66,7 +78,7 @@ jobs:
       # apksigcopier: signing the same unsigned APK without the flag fails to
       # verify after a signature copy, with it the copy verifies.
       - name: Release-APK signieren
-        if: env.HAS_KEYSTORE == 'true'
+        if: env.HAS_KEYSTORE == 'true' && steps.rel.outputs.exists == 'false'
         env:
           KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -88,7 +100,7 @@ jobs:
 
       # Tag == versionName, because Obtainium and F-Droid both compare them.
       - name: Release
-        if: env.HAS_KEYSTORE == 'true'
+        if: env.HAS_KEYSTORE == 'true' && steps.rel.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.v }}

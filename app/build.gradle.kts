@@ -9,8 +9,8 @@ android {
         applicationId = "com.plum0.jabralibre"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.3.4"
+        versionCode = 12
+        versionName = "0.3.5"
     }
     signingConfigs {
         getByName("debug") {
@@ -24,9 +24,16 @@ android {
     }
     buildTypes {
         debug { signingConfig = signingConfigs.getByName("debug") }
-        // F-Droid builds this one and signs it with their own key, so no
-        // signingConfig here on purpose: `assembleRelease` stays unsigned.
-        release { isMinifyEnabled = false }
+        release {
+            isMinifyEnabled = false
+            // AGP otherwise writes the git commit of the build tree into
+            // META-INF/version-control-info.textproto, which makes the APK
+            // depend on *which commit* was checked out rather than on the
+            // sources. F-Droid builds the tagged commit, so any later commit
+            // with identical sources would produce a different APK and the
+            // reproducible-build check would fail on that one line.
+            vcsInfo { include = false }
+        }
     }
     // The dependency metadata block AGP adds is an opaque, Google-signed blob.
     // Leaving it out keeps the APK reproducible from source.

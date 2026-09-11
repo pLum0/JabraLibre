@@ -1,0 +1,8 @@
+Zweiter Versuch für einen überprüfbaren reproduzierbaren Build.
+
+AGP schreibt den Git-Commit des Build-Verzeichnisses ins APK. Derselbe
+Quellcode ergab aus einem anderen Commit also eine andere Datei — und F-Droid
+baut den getaggten Commit. Diese Angabe ist nun abgeschaltet, das APK hängt
+nur noch am Quellcode.
+
+Die CI ersetzt außerdem kein APK eines bereits veröffentlichten Releases mehr.

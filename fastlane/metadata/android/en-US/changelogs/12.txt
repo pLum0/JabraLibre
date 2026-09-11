@@ -1,0 +1,8 @@
+Second attempt at a verifiable reproducible build.
+
+AGP writes the git commit of the build tree into the APK, so the same sources
+built from a different commit produced a different file — and F-Droid builds
+the tagged commit. That metadata is now switched off, so the APK depends on
+the sources alone.
+
+CI also no longer replaces the APK of a release that already exists.

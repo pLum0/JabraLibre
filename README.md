@@ -171,6 +171,12 @@ Three things keep that working, and all three are easy to break:
   zipaligned the APK, so there is nothing to gain by letting it redo the work.
 * `dependenciesInfo` is disabled, so the APK carries no opaque Google-signed
   dependency blob.
+* `vcsInfo` is disabled on the release build type. AGP otherwise writes the git
+  commit of the build tree into `META-INF/version-control-info.textproto`, so
+  the same sources built from a different commit yield a different APK — and
+  F-Droid builds the *tagged* commit, not whatever came after it.
+* CI never republishes the APK of a release that already exists, so the
+  artefact F-Droid verified against cannot be swapped out under it.
 
 The listing texts are read from `fastlane/` at the commit being built, so those
 files have to be committed *before* the tag F-Droid builds.
