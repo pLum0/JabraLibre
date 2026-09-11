@@ -1,0 +1,7 @@
+This release is signed with a real release key instead of the debug key, so
+F-Droid can verify that its own build from source matches this APK byte for
+byte — reproducible builds.
+
+If you installed an earlier version from GitHub or Obtainium, Android will
+refuse this one as an update, because the signature changed. Uninstall the old
+app once, then install this. Nothing else about the app changes.

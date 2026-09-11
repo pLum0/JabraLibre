@@ -1,0 +1,7 @@
+Diese Version ist mit einem echten Release-Schlüssel signiert statt mit dem
+Debug-Schlüssel. So kann F-Droid prüfen, dass der eigene Build aus dem
+Quellcode Byte für Byte diesem APK entspricht — reproduzierbare Builds.
+
+Wer eine frühere Version über GitHub oder Obtainium installiert hat: Android
+lehnt diese als Update ab, weil sich die Signatur geändert hat. Alte App
+einmal deinstallieren, dann diese installieren. Sonst ändert sich nichts.

@@ -1,4 +1,4 @@
-name: Build debug APK
+name: Build APK
 
 on:
   push:
@@ -10,6 +10,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Signing is skipped entirely until the keystore secret exists, so a
+      # fork or a fresh clone still builds.
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,30 +27,64 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Deliberately no gradle-version here: the wrapper decides. F-Droid
+      # builds with the version in gradle-wrapper.properties, and reproducible
+      # builds need both sides to use the same Gradle.
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
 
-      - run: gradle assembleDebug --no-daemon
+      - run: ./gradlew assembleDebug assembleRelease --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
           name: JabraLibre-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      # Release mit APK → direkt per Obtainium installierbar/updatable
-      # WICHTIG: Tag == versionName (Obtainium vergleicht beide).
-      # versionName in app/build.gradle.kts bei jedem Release bumpen!
-      - name: App-Version auslesen
+      - name: Version und Changelog auslesen
         id: ver
-        run: echo "v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
+        run: |
+          V=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          C=$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)
+          echo "v=$V" >> "$GITHUB_OUTPUT"
+          NOTES="fastlane/metadata/android/en-US/changelogs/$C.txt"
+          if [ ! -f "$NOTES" ]; then
+            NOTES="$RUNNER_TEMP/notes.txt"
+            printf 'JabraLibre %s\n' "$V" > "$NOTES"
+          fi
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+
+      - name: Keine Signatur konfiguriert
+        if: env.HAS_KEYSTORE != 'true'
+        run: |
+          echo "::warning::KEYSTORE_BASE64 is not set — skipping signing and release."
+
+      # apksigner, not jarsigner: F-Droid copies the signature onto its own
+      # build and the rest of the APK has to stay byte-identical.
+      - name: Release-APK signieren
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          KS="$RUNNER_TEMP/release.jks"
+          printf '%s' "$KS_B64" | base64 -d > "$KS"
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          OUT="JabraLibre-${{ steps.ver.outputs.v }}.apk"
+          "$APKSIGNER" sign \
+            --ks "$KS" --ks-pass env:KS_PASS \
+            --ks-key-alias "$KS_ALIAS" --key-pass env:KS_PASS \
+            --out "$OUT" \
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          "$APKSIGNER" verify --print-certs "$OUT"
+          rm -f "$KS"
+
+      # Tag == versionName, because Obtainium and F-Droid both compare them.
       - name: Release
+        if: env.HAS_KEYSTORE == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.v }}
           name: JabraLibre v${{ steps.ver.outputs.v }}
-          body: |
-            Debug build. ANC/HearThrough/Off-Switcher für Jabra Elite 10 —
-            inkl. Quick-Settings-Tile und Akkustand für beide Hörer und Ladeetui.
-            Komplett offline (RFCOMM, keine Internet-Berechtigung).
-          files: app/build/outputs/apk/debug/app-debug.apk
+          body_path: ${{ steps.ver.outputs.notes }}
+          files: JabraLibre-${{ steps.ver.outputs.v }}.apk

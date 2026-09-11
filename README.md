@@ -154,11 +154,24 @@ Everything F-Droid needs is in the repository:
 | Filled-in MR checklist | `fdroid/INCLUSION_REQUEST.md` |
 | Gradle version for their build server | `gradle/wrapper/gradle-wrapper.properties` |
 
-F-Droid builds `assembleRelease`, which is deliberately left **unsigned** here
-so that they can sign it with their own key, and `dependenciesInfo` is disabled
-so the APK carries no opaque Google-signed dependency blob. The listing texts
-are read from `fastlane/` at the commit being built, so those files have to be
-committed *before* the tag F-Droid builds.
+F-Droid builds `assembleRelease` and compares the result, byte for byte,
+against the APK published on the GitHub release for the same tag — that is what
+`Binaries:` and `AllowedAPKSigningKeys:` in the recipe are for. If the bytes
+match, F-Droid publishes **this project's own signed APK**; if they do not, it
+publishes nothing. So the app you install from F-Droid carries the same
+signature as the one from GitHub, and either can update the other.
+
+Three things keep that working, and all three are easy to break:
+
+* CI builds through `./gradlew`, never a CI-chosen Gradle version, because
+  F-Droid builds with the version pinned in `gradle-wrapper.properties`.
+* The release APK is signed with `apksigner`, and never rebuilt or re-aligned
+  afterwards. AGP already zipaligns it.
+* `dependenciesInfo` is disabled, so the APK carries no opaque Google-signed
+  dependency blob.
+
+The listing texts are read from `fastlane/` at the commit being built, so those
+files have to be committed *before* the tag F-Droid builds.
 
 To submit: fork [fdroiddata](https://gitlab.com/fdroid/fdroiddata), copy
 `fdroid/com.plum0.jabralibre.yml` to `metadata/com.plum0.jabralibre.yml`, check
@@ -167,9 +180,11 @@ it with `fdroid lint` and `fdroid build`, then open a merge request titled
 
 Two things to expect from review:
 
-* **The F-Droid build and the Obtainium build are signed with different keys.**
-  They are therefore not interchangeable: anyone switching from one to the other
-  has to uninstall first. Nothing is lost but the app's own settings.
+* **Releases before 0.3.3 were signed with the debug key.** From 0.3.3 on they
+  are signed with a real release key, which is what makes the reproducible-build
+  verification meaningful. Android refuses a signature change as an update, so
+  anyone who installed 0.3.2 or earlier has to uninstall once. Nothing is lost
+  but the app's own settings.
 * **The name contains a trademark.** F-Droid reviewers do sometimes ask about
   that. The disclaimer above is the honest answer — no affiliation, no Jabra
   code, findings from observing one's own hardware — but be prepared for the
