@@ -40,5 +40,8 @@ jobs:
         with:
           tag_name: v${{ steps.ver.outputs.v }}
           name: JabraLibre v${{ steps.ver.outputs.v }}
-          body: Debug build. ANC/HearThrough/Off-Switcher für Jabra Elite 10 (RFCOMM, offline).
+          body: |
+            Debug build. ANC/HearThrough/Off-Switcher für Jabra Elite 10 —
+            inkl. Quick-Settings-Tile und Akkustand für beide Hörer und Ladeetui.
+            Komplett offline (RFCOMM, keine Internet-Berechtigung).
           files: app/build/outputs/apk/debug/app-debug.apk
