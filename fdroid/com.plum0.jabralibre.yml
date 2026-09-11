@@ -33,10 +33,10 @@ Repo: https://github.com/pLum0/JabraLibre.git
 
 Builds:
   # An immutable reference, which reviewers prefer over a tag: this is what
-  # v0.3.0 points at (`git rev-parse v0.3.0`).
-  - versionName: 0.3.0
-    versionCode: 7
-    commit: 6c71359465a5494b3f5567d4be0123ede84152a1
+  # v0.3.1 points at (`git rev-parse v0.3.1`).
+  - versionName: 0.3.1
+    versionCode: 8
+    commit: ff690eb4d1846edbf7a702e5cf911fd07c180f62
     subdir: app
     gradle:
       - yes
@@ -45,5 +45,5 @@ AutoUpdateMode: Version
 # Anchored so only release tags match — CI also pushes nothing else, but a bare
 # "Tags" would happily pick up any future tag.
 UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+$
-CurrentVersion: 0.3.0
-CurrentVersionCode: 7
+CurrentVersion: 0.3.1
+CurrentVersionCode: 8

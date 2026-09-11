@@ -11,8 +11,9 @@
 * [x] Builds with `fdroid build` and all pipelines pass — verified locally against
       `registry.gitlab.com/fdroid/docker-executable-fdroidserver:master`:
       `fdroid lint` clean, `fdroid scanner` clean, and `fdroid build` produced
-      `unsigned/com.plum0.jabralibre_7.apk` from commit `6c71359` (versionCode 7,
-      versionName 0.3.0, unsigned as expected).
+      the unsigned release APK from the pinned commit (versionCode 8,
+      versionName 0.3.1, unsigned as expected). The MR pipeline has also run
+      green on all nine jobs.
 * [x] There is an issue tracker and contact info of the author so that we can report bugs and contact the author.
 
 ## Strongly Recommended
