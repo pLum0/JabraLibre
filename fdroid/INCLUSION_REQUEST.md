@@ -31,6 +31,12 @@
 
 /label ~"New App"
 
+<!-- The line above only takes effect for fdroiddata members; submitting it as
+     an outside contributor answers "Could not apply label command." That is
+     expected and needs no action — maintainers add "New App" together with a
+     triage label ("review-requested" / "waiting-on-response") when they pick
+     the request up. It is part of the upstream template, so it stays here. -->
+
 <!-- Notes for the reviewer, if asked:
 
      * The app has no INTERNET permission at all; the release APK declares only
