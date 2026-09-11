@@ -13,6 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # F-Droid truncates over-long listing text instead of complaining, so
+      # catch it here where it is still free to fix
+      - name: Check fastlane text against F-Droid's character limits
+        run: python3 tools/check-fastlane-limits.py
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
