@@ -1,0 +1,3 @@
+The device chip in the header is easier to hit and now carries a real chevron
+instead of a small arrow character, so it is recognisable as something you can
+tap to switch earbuds.

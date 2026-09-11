@@ -262,7 +262,11 @@ class MainActivity : AppCompatActivity() {
         val name = JabraManager.deviceName
         val canChoose = JabraManager.selectableDevices(this).isNotEmpty()
         devicePill.visibility = if (name == null && !canChoose) View.GONE else View.VISIBLE
-        devicePill.text = (name ?: getString(R.string.action_choose_device)) + if (canChoose) "  ▾" else ""
+        devicePill.text = name ?: getString(R.string.action_choose_device)
+        devicePill.setCompoundDrawablesRelativeWithIntrinsicBounds(
+            0, 0, if (canChoose) R.drawable.ic_chevron_down else 0, 0
+        )
+        devicePill.isClickable = canChoose
         devicePill.alpha = if (JabraManager.isConnected) 1f else STALE_ALPHA
 
         if (diagPanel.visibility == View.VISIBLE) {

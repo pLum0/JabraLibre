@@ -44,15 +44,17 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/pill_bg"
-                android:paddingStart="14dp"
+                android:paddingStart="16dp"
                 android:paddingEnd="14dp"
-                android:paddingTop="7dp"
-                android:paddingBottom="7dp"
-                android:textSize="12sp"
-                android:textColor="@color/text_secondary"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary"
+                android:drawablePadding="8dp"
+                android:drawableTint="@color/text_secondary"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:maxWidth="150dp"
+                android:maxWidth="190dp"
                 android:visibility="gone" />
         </LinearLayout>
 

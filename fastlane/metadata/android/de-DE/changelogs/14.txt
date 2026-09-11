@@ -1,0 +1,3 @@
+Die Geräte-Schaltfläche in der Kopfzeile ist größer und zeigt nun einen
+richtigen Pfeil statt eines kleinen Zeichens — man erkennt jetzt, dass man sie
+antippen kann, um die Ohrhörer zu wechseln.
