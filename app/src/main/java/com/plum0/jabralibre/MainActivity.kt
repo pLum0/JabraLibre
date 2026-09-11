@@ -256,9 +256,14 @@ class MainActivity : AppCompatActivity() {
 
         renderBattery()
 
+        // The pill doubles as the device picker, so it stays visible (and says
+        // so) even when no name matched — otherwise renamed earbuds would be
+        // unreachable.
         val name = JabraManager.deviceName
-        devicePill.visibility = if (name == null) View.GONE else View.VISIBLE
-        devicePill.text = name
+        val canChoose = JabraManager.selectableDevices(this).isNotEmpty()
+        devicePill.visibility = if (name == null && !canChoose) View.GONE else View.VISIBLE
+        devicePill.text = (name ?: getString(R.string.action_choose_device)) + if (canChoose) "  ▾" else ""
+        devicePill.alpha = if (JabraManager.isConnected) 1f else STALE_ALPHA
 
         if (diagPanel.visibility == View.VISIBLE) {
             val atBottom = !logScroll.canScrollVertically(1)
@@ -324,8 +329,8 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun chooseDevice() {
-        val devices = JabraManager.bondedJabras(this)
-        if (devices.size < 2) return
+        val devices = JabraManager.selectableDevices(this)
+        if (devices.isEmpty()) return
         val labels = devices.map { "${it.name ?: "?"}  ·  ${it.address}" }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle(R.string.action_choose_device)

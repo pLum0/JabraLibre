@@ -45,9 +45,13 @@ class JabraRfcomm(
          * ladder is what makes this app connect where Sound+ often does not.
          */
         fun hasBluetoothLink(device: BluetoothDevice): Boolean =
+            bluetoothLinkState(device) ?: true
+
+        /** null when the hidden API is unavailable, i.e. "cannot tell". */
+        fun bluetoothLinkState(device: BluetoothDevice): Boolean? =
             runCatching {
                 device.javaClass.getMethod("isConnected").invoke(device) as? Boolean
-            }.getOrNull() ?: true
+            }.getOrNull()
 
         /** Topics seen in the capture — starting points for the probe. */
         val KNOWN_TOPICS = intArrayOf(0x13be, 0x1202, 0x0d4c, 0x0228)

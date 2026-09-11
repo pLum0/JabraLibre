@@ -1,0 +1,9 @@
+Better device handling.
+
+The picker in the header now lists what the phone is actually connected to,
+rather than every paired device — speakers, mice and laptops included. It only
+falls back to name matching when nothing is connected.
+
+Devices named "Jabra" now rank above ones that merely say "Elite", which is
+also a brand of cycling trainers. And the header chip marks itself as tappable,
+so earbuds you renamed stay reachable instead of looking unpaired.

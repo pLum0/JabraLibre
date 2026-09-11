@@ -1,0 +1,9 @@
+Bessere Geräteauswahl.
+
+Die Auswahl in der Kopfzeile zeigt nun, womit das Telefon tatsächlich verbunden
+ist, statt aller gekoppelten Geräte — Lautsprecher, Mäuse und Laptops
+eingeschlossen. Nur wenn nichts verbunden ist, zählt wieder der Name.
+
+Geräte mit "Jabra" im Namen stehen jetzt vor solchen mit bloß "Elite" — das ist
+auch eine Marke für Fahrradtrainer. Und die Kopfzeile zeigt, dass man sie
+antippen kann.

@@ -109,15 +109,49 @@ object JabraManager {
         ) == PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("MissingPermission")
-    fun bondedJabras(ctx: Context): List<BluetoothDevice> {
+    private fun bonded(ctx: Context): List<BluetoothDevice> {
         if (!hasPermission(ctx)) return emptyList()
-        return adapter(ctx)?.bondedDevices
-            ?.filter { d ->
-                val n = d.name ?: ""
-                n.contains("jabra", true) || n.contains("elite", true)
-            }
-            ?.sortedBy { it.name ?: it.address }
-            ?: emptyList()
+        return adapter(ctx)?.bondedDevices?.toList() ?: emptyList()
+    }
+
+    /**
+     * How likely a paired device is the headset we speak to. "Elite" alone is
+     * a weak signal — it is Jabra's product line, but also a brand of cycling
+     * trainers ("ELITE DIRETO"), which would otherwise sort ahead of a real
+     * Jabra and be picked by default.
+     */
+    @SuppressLint("MissingPermission")
+    private fun rank(d: BluetoothDevice): Int {
+        val n = (d.name ?: "").lowercase(Locale.US)
+        return when {
+            n.contains("jabra") -> 0
+            n.contains("elite") -> 1
+            else -> 2
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun byLikelihood(devices: List<BluetoothDevice>) =
+        devices.sortedWith(compareBy({ rank(it) }, { it.name ?: it.address }))
+
+    /** Paired devices whose name suggests a Jabra headset, best guess first. */
+    fun bondedJabras(ctx: Context): List<BluetoothDevice> =
+        byLikelihood(bonded(ctx).filter { rank(it) < 2 })
+
+    /**
+     * What the device picker offers: everything the phone is actually
+     * connected to, likely Jabras first. Listing every paired device would
+     * mean speakers, mice and laptops, and we could not talk to them anyway —
+     * the protocol needs a live Bluetooth link. Going by the link rather than
+     * by the name also keeps a renamed headset reachable.
+     *
+     * If nothing is connected, fall back to the name matches so a choice can
+     * still be made — that also covers the case where the hidden link-state
+     * API is unavailable and every device reads as "cannot tell".
+     */
+    fun selectableDevices(ctx: Context): List<BluetoothDevice> {
+        val connected = bonded(ctx).filter { JabraRfcomm.bluetoothLinkState(it) == true }
+        return byLikelihood(connected).ifEmpty { bondedJabras(ctx) }
     }
 
     /** The remembered device if it is still paired, otherwise the first Jabra. */
