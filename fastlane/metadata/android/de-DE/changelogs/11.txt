@@ -1,0 +1,7 @@
+Macht den reproduzierbaren Build tatsächlich überprüfbar.
+
+0.3.3 war mit einem echten Schlüssel signiert, doch das Signieren richtete
+zugleich alle Einträge im APK neu aus — niemand konnte aus dem Quellcode
+dieselben Bytes bauen. Das Signieren erhält nun die bestehende Ausrichtung.
+
+An der App ändert sich nichts. Diese Version installiert sich normal über 0.3.3.

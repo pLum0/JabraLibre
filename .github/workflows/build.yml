@@ -59,6 +59,12 @@ jobs:
 
       # apksigner, not jarsigner: F-Droid copies the signature onto its own
       # build and the rest of the APK has to stay byte-identical.
+      #
+      # --alignment-preserved is what makes that possible and is easy to miss:
+      # without it apksigner re-aligns every entry while signing, rewriting the
+      # zip padding, and no rebuild can reproduce the result. Verified with
+      # apksigcopier: signing the same unsigned APK without the flag fails to
+      # verify after a signature copy, with it the copy verifies.
       - name: Release-APK signieren
         if: env.HAS_KEYSTORE == 'true'
         env:
@@ -74,6 +80,7 @@ jobs:
           "$APKSIGNER" sign \
             --ks "$KS" --ks-pass env:KS_PASS \
             --ks-key-alias "$KS_ALIAS" --key-pass env:KS_PASS \
+            --alignment-preserved \
             --out "$OUT" \
             app/build/outputs/apk/release/app-release-unsigned.apk
           "$APKSIGNER" verify --print-certs "$OUT"

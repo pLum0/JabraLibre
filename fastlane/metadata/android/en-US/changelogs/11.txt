@@ -1,0 +1,8 @@
+Makes the reproducible build actually verify.
+
+0.3.3 was signed with a real key, but the signing step also re-aligned every
+entry in the APK, so nobody could rebuild the exact same bytes from source.
+Signing now preserves the existing alignment, and an independent rebuild of
+this release reproduces the published APK exactly.
+
+Nothing changes in the app. This one installs over 0.3.3 as a normal update.

@@ -165,8 +165,10 @@ Three things keep that working, and all three are easy to break:
 
 * CI builds through `./gradlew`, never a CI-chosen Gradle version, because
   F-Droid builds with the version pinned in `gradle-wrapper.properties`.
-* The release APK is signed with `apksigner`, and never rebuilt or re-aligned
-  afterwards. AGP already zipaligns it.
+* The release APK is signed with `apksigner --alignment-preserved`. Without
+  that flag apksigner re-aligns every entry while signing, rewriting the zip
+  padding, and then no rebuild can reproduce the bytes. AGP has already
+  zipaligned the APK, so there is nothing to gain by letting it redo the work.
 * `dependenciesInfo` is disabled, so the APK carries no opaque Google-signed
   dependency blob.
 
