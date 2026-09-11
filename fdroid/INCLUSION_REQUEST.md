@@ -8,9 +8,11 @@
 * [x] The app complies with the [inclusion criteria](https://f-droid.org/docs/Inclusion_Policy)
 * [x] The original app author has been notified (and does not oppose the inclusion) — I am the author.
 * [x] All related [fdroiddata](https://gitlab.com/fdroid/fdroiddata/issues) and [RFP issues](https://gitlab.com/fdroid/rfp/issues) have been referenced in this merge request — none exist for this app.
-* [ ] Builds with `fdroid build` and all pipelines pass
-      <!-- NOT YET VERIFIED: run `fdroid build com.plum0.jabralibre` locally (or
-           let the MR pipeline do it) and tick this before submitting. -->
+* [x] Builds with `fdroid build` and all pipelines pass — verified locally against
+      `registry.gitlab.com/fdroid/docker-executable-fdroidserver:master`:
+      `fdroid lint` clean, `fdroid scanner` clean, and `fdroid build` produced
+      `unsigned/com.plum0.jabralibre_7.apk` from commit `6c71359` (versionCode 7,
+      versionName 0.3.0, unsigned as expected).
 * [x] There is an issue tracker and contact info of the author so that we can report bugs and contact the author.
 
 ## Strongly Recommended
