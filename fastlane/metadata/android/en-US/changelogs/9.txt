@@ -1,0 +1,9 @@
+Fixes the Quick Settings tile showing itself as inactive while the earbuds
+were connected.
+
+The tile is bound into a fresh process every time the app has been killed, and
+the current mode only ever lived in memory — so the tile knew no mode and
+could not show itself as active. It is now remembered between runs.
+
+Also hardened: the earbuds are found by address as well as by name, since
+Android can report no device name yet in a fresh process.

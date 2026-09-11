@@ -1,0 +1,8 @@
+Behebt, dass sich das Schnelleinstellungs-Tile als inaktiv zeigte, obwohl die
+Ohrhörer verbunden waren.
+
+Das Tile startet in einem frischen Prozess, sobald die App beendet wurde, und
+der aktuelle Modus lag nur im Speicher — das Tile kannte also keinen Modus und
+konnte sich nicht als aktiv zeigen. Er wird nun gespeichert.
+
+Zusätzlich: Die Ohrhörer werden auch per Adresse gefunden, nicht nur per Name.

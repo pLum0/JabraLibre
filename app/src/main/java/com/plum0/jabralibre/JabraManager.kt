@@ -31,6 +31,7 @@ object JabraManager {
     private const val PREFS = "jabralibre"
     private const val KEY_DEVICE = "last_device"
     private const val KEY_DIAG = "diag_open"
+    private const val KEY_MODE = "last_mode"
     private const val MAX_LINES = 600
 
     private val main = Handler(Looper.getMainLooper())
@@ -54,7 +55,20 @@ object JabraManager {
     val isConnected: Boolean get() = rfcomm?.isConnected == true
 
     fun init(ctx: Context) {
-        if (appContext == null) appContext = ctx.applicationContext
+        if (appContext != null) return
+        appContext = ctx.applicationContext
+        if (mode == null) {
+            // The tile is bound into a fresh process every time the app is
+            // killed. Without this it would know no mode at all and could only
+            // render itself as inactive, which reads as "broken" while the
+            // earbuds are sitting there connected.
+            val wire = prefs(ctx).getInt(KEY_MODE, -1)
+            mode = AncMode.entries.firstOrNull { it.wire == wire }
+        }
+    }
+
+    private fun rememberMode(m: AncMode) {
+        appContext?.let { prefs(it).edit().putInt(KEY_MODE, m.wire).apply() }
     }
 
     // ---------- observers ----------
@@ -111,7 +125,18 @@ object JabraManager {
     fun preferredDevice(ctx: Context): BluetoothDevice? {
         val all = bondedJabras(ctx)
         val remembered = prefs(ctx).getString(KEY_DEVICE, null)
-        return all.firstOrNull { it.address == remembered } ?: all.firstOrNull()
+        all.firstOrNull { it.address == remembered }?.let { return it }
+
+        // bondedJabras() recognises devices by name, and getName() can come
+        // back null in a freshly started process before the name cache is
+        // warm. That used to leave the Quick Settings tile believing no device
+        // existed at all — it greyed itself out while the buds sat there
+        // connected. The remembered address does not depend on that cache.
+        if (remembered != null) {
+            val known = runCatching { adapter(ctx)?.getRemoteDevice(remembered) }.getOrNull()
+            if (known != null && known.bondState == BluetoothDevice.BOND_BONDED) return known
+        }
+        return all.firstOrNull()
     }
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -142,7 +167,7 @@ object JabraManager {
 
         val link = rfcomm ?: JabraRfcomm(
             log = { msg -> log(msg) },
-            onMode = { m -> mode = m; notifyChanged() },
+            onMode = { m -> mode = m; rememberMode(m); notifyChanged() },
             onState = { s -> main.post { onLinkState(s) } },
             onBattery = { b ->
                 // the buds repeat the record several times per change
@@ -191,11 +216,12 @@ object JabraManager {
         init(ctx)
         if (isConnected) return
         val dev = device ?: preferredDevice(ctx)
-        setState(
-            if (dev != null && hasPermission(ctx) && isBluetoothOn(ctx) &&
-                JabraRfcomm.hasBluetoothLink(dev)
-            ) ConnState.IDLE else ConnState.UNAVAILABLE
-        )
+        val perm = hasPermission(ctx)
+        val bt = isBluetoothOn(ctx)
+        val link = dev != null && JabraRfcomm.hasBluetoothLink(dev)
+        log("availability: device=${dev?.address ?: "none"} byName=${bondedJabras(ctx).size} " +
+            "mode=${mode ?: "unknown"} permission=$perm bluetooth=$bt link=$link")
+        setState(if (dev != null && perm && bt && link) ConnState.IDLE else ConnState.UNAVAILABLE)
     }
 
     /** The phone lost its Bluetooth link to the buds (case closed, powered off). */
@@ -227,6 +253,7 @@ object JabraManager {
 
     private fun setMode(m: AncMode) {
         mode = m                       // optimistic: the read-back confirms
+        rememberMode(m)
         notifyChanged()
         rfcomm?.setMode(m)
     }
