@@ -201,10 +201,11 @@ Two things to expect from review:
 ## Install via Obtainium
 
 Add **`pLum0/JabraLibre`** as a GitHub source in
-[Obtainium](https://github.com/ImranR98/Obtainium). Every CI build publishes a
-GitHub Release containing the signed debug APK, so Obtainium picks up updates
-automatically. A committed debug keystore keeps the signature stable — updates
-install right over the previous version.
+[Obtainium](https://github.com/ImranR98/Obtainium). Each new version gets a
+GitHub Release with `JabraLibre-<version>.apk`, signed with the release key, so
+Obtainium picks up updates automatically. F-Droid builds the app reproducibly
+and ships it under that same signature, so you can switch between the two
+sources without uninstalling.
 
 ## Disclaimer
 
