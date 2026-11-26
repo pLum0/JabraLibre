@@ -36,8 +36,24 @@ class JabraRfcomm(
         private val TOPIC_MODE = byteArrayOf(0x13, 0xbe.toByte())
         private val TOPIC_BATTERY = byteArrayOf(0x12, 0x02)
         /** Length of the topic-1202 battery record (header 5 + 2 entries x 3). */
-        private const val BATTERY_LEN = 11
         private val CHANNELS = intArrayOf(29, 28, 30)
+
+        /**
+         * Serial Port Profile. The Elite Active 75t (firmware 2.0.0) has no
+         * channel 29; Sound+ talks to it over its SPP service (channel 3 in
+         * the capture from issue 2), with the very same frame format.
+         */
+        private val SPP = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb")
+
+        /** Low 6 bits of the type byte = total frame length (all 574 frames of the 75t capture). */
+        private fun frameLen(type: Int) = type and 0x3f
+
+        /**
+         * What worked last time, per device address, for this process: a
+         * channel number, or 0 for the SPP service record. Saves the ~10 s
+         * ladder on every reconnect of buds that do not use channel 29.
+         */
+        private val lastRoute = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
         /**
          * Whether the phone currently holds a Bluetooth link to the buds.
@@ -115,6 +131,28 @@ class JabraRfcomm(
                     log("SDP cache: ${if (it.isEmpty()) "(empty)" else it.joinToString { p -> p.uuid.toString() }}")
                 }
 
+                fun trySpp(): Boolean {
+                    val s = uuidSocket(device, SPP) ?: return false
+                    return try {
+                        s.connect()
+                        socket = s; out = s.outputStream
+                        lastRoute[device.address] = 0
+                        viaSpp = true
+                        log("connected (SPP)")
+                        ok = true
+                        onState(ConnState.CONNECTED)
+                        startReader(s.inputStream); initSession(); readMode(); readBattery()
+                        true
+                    } catch (e: Exception) {
+                        log("SPP: ${e.message}")
+                        runCatching { s.close() }
+                        false
+                    }
+                }
+
+                // buds that answered on SPP last time: go there first
+                if (lastRoute[device.address] == 0 && trySpp()) return@Thread
+
                 // strategy 1: direct channels (29 = capture finding), 2 tries each
                 for (ch in CHANNELS) {
                     for (attempt in 1..2) {
@@ -124,6 +162,8 @@ class JabraRfcomm(
                         try {
                             s.connect()
                             socket = s; out = s.outputStream
+                            lastRoute[device.address] = ch
+                            viaSpp = false
                             log("connected (channel $ch)")
                             ok = true
                             onState(ConnState.CONNECTED)
@@ -137,8 +177,12 @@ class JabraRfcomm(
                     }
                 }
 
+                // strategy 1b: the SPP service (Elite Active 75t and likely its siblings)
+                val uuids = cachedUuids(device).orEmpty().map { it.uuid }
+                if (SPP in uuids && lastRoute[device.address] != 0 && trySpp()) return@Thread
+
                 // strategy 2: proprietary SDP UUIDs -> service record connect
-                val customs = cachedUuids(device).orEmpty().map { it.uuid }
+                val customs = uuids
                     .filterNot { it.toString().substring(0, 8).matches(Regex("0000(11|18)[0-9a-f]{2}")) }
                 if (customs.isEmpty()) {
                     log("no proprietary SDP UUIDs in the cache")
@@ -233,7 +277,13 @@ class JabraRfcomm(
 
     fun readMode() { send(0x47, TOPIC_MODE, byteArrayOf(0x01)) }
 
-    fun readBattery() { send(0x47, TOPIC_BATTERY, byteArrayOf(0x01)) }
+    /** Connected over SPP, i.e. the 75t family, whose Sound+ reads battery without an index. */
+    @Volatile private var viaSpp = false
+
+    fun readBattery() {
+        if (viaSpp) send(0x46, TOPIC_BATTERY)
+        else send(0x47, TOPIC_BATTERY, byteArrayOf(0x01))
+    }
 
     // ---- protocol exploration (battery / EQ hunting) ----
 
@@ -372,16 +422,19 @@ class JabraRfcomm(
                         i += 9
                     } else { carry = data.copyOfRange(i, data.size); return }
                 }
-                0xd1, 0x11 -> {                  // battery: 09 04 seq <d1|11> 1202 <11 bytes>
+                // battery: 09 04 seq <type> 1202 <record>, reply (class 11) or push (class 00).
+                // Elite 10: d1/11 with an 11-byte record; Elite Active 75t: ce with 8 bytes.
+                0xd1, 0x11, 0xce, 0x0e -> {
+                    val len = frameLen(type)
                     if (i + 5 < data.size) {
                         val topic = (data[i + 4].toInt() and 0xff) shl 8 or (data[i + 5].toInt() and 0xff)
                         if (topic == 0x1202) {
-                            if (i + 6 + BATTERY_LEN > data.size) {
+                            if (i + len > data.size) {
                                 carry = data.copyOfRange(i, data.size); return
                             }
-                            Battery.parse(data.copyOfRange(i + 6, i + 6 + BATTERY_LEN))
+                            Battery.parse(data.copyOfRange(i + 6, i + len))
                                 ?.let { b -> ui.post { onBattery(b) } }
-                            i += 6 + BATTERY_LEN
+                            i += len
                         } else i += 4
                     } else { carry = data.copyOfRange(i, data.size); return }
                 }
