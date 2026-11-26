@@ -67,21 +67,24 @@ lines if you would rather not publish them.
 ## Protocol notes
 
 The Elite 10 talks to Sound+ over **Bluetooth Classic RFCOMM (server channel 29)**,
-not BLE/GATT. Frames carry no length header:
+not BLE/GATT. The Elite Active 75t speaks the same protocol over its SPP
+service (channel 3 on the pair that was captured).
 
 ```
 phone → buds   04 09 <seq> <type> <topic:2> <payload…>
 buds → phone   09 04 <seq> <type> <topic:2> <payload…>
 ```
 
-Command types seen so far: `47` read, `88` write, `8a` session ping.
-Reply types: `c7` single-byte value, `c9` index list, `d3` length-prefixed
-string, `09` unsolicited push.
+The type byte carries the frame length: its **low 6 bits are the total length
+of the frame**, header included (true for every frame in a 574-frame capture of
+the 75t, and for the Elite 10's frames). The top 2 bits are the class: `00`
+push, `01` read, `10` write, `11` reply. So `47` is a 7-byte read and `d1` a
+17-byte reply.
 
-Command types seen so far: `47` read, `88` write, `8a` subscribe.
-Reply types: `c7` single byte, `c8` two bytes, `c9` index list, `d1`/`d3`/`d4`/`d5`
-length-prefixed records and strings, `cb` **error** (`fe fa` followed by an echo
-of the rejected request), `09`/`11` unsolicited push.
+Command types seen so far: `46`/`47` read (without/with index), `88` write,
+`8a` subscribe. Reply types: `c7` single byte, `c8` two bytes, `c9` index list,
+`d1`/`d3`/`d4`/`d5` records and strings, `cb` **error** (`fe fa` followed by an
+echo of the rejected request), `09`/`11` unsolicited push.
 
 `cb` is what makes the protocol explorable: reading a topic/index that does not
 exist answers with an error instead of silence, so a sweep cleanly separates
@@ -112,6 +115,9 @@ Component ids are the ones topic `0228` enumerates (`04 05 15`): `04` left bud,
 `05` right bud (the address the phone is bonded to), `15` the charging case
 (index `15` of `0228` returns all zeros — the case has no Bluetooth address).
 The left bud's level sits in the record header rather than in an entry.
+
+The Elite Active 75t answers a read without index (`46 12 02`) with a shorter
+record, type `ce`: `94 29 0e bf 01 | 15 00 64` — one bud level and the case.
 
 Verified against Sound+ with three different levels (85 / 90 / 80), and by
 putting the right bud into the case: only the `05` entry rose while it charged.
