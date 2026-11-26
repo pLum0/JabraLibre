@@ -1,0 +1,4 @@
+Funktioniert mit den Jabra Elite Active 75t, die über ihren seriellen Dienst
+statt über den Kanal der Elite 10 angesprochen werden. Die Schnelleinstellungs-
+Kachel bleibt nicht mehr ausgegraut, wenn die Ohrhörer zurückkommen, und folgt
+ihnen jetzt live, solange die Schnelleinstellungen offen sind.

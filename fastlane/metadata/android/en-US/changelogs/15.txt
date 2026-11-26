@@ -1,0 +1,4 @@
+Works with the Jabra Elite Active 75t, which talks over its serial port service
+instead of the channel the Elite 10 uses. The Quick Settings tile no longer
+stays greyed out after the earbuds reconnect, and it now follows them coming
+and going while the shade is open.
