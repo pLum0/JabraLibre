@@ -1,11 +1,16 @@
 package com.plum0.jabralibre
 
 import android.app.PendingIntent
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import androidx.core.content.ContextCompat
 
 /**
  * Quick Settings tile: one tap cycles ANC -> HearThrough -> Off.
@@ -18,15 +23,48 @@ class ModeTileService : TileService() {
 
     private val listener: () -> Unit = { updateTile() }
 
+    /**
+     * While the shade is open, follow the buds coming and going — otherwise
+     * the tile only catches up the next time the shade is pulled down.
+     */
+    private val aclReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val dev: BluetoothDevice? =
+                if (Build.VERSION.SDK_INT >= 33)
+                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                else
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+            val address = dev?.address ?: return
+            if (address != JabraManager.preferredDevice(context)?.address) return
+            when (intent.action) {
+                BluetoothDevice.ACTION_ACL_CONNECTED -> JabraManager.refreshAvailability(context)
+                BluetoothDevice.ACTION_ACL_DISCONNECTED -> JabraManager.markUnavailable()
+            }
+        }
+    }
+    private var aclRegistered = false
+
     override fun onStartListening() {
         super.onStartListening()
         JabraManager.init(this)
         JabraManager.addListener(listener)
         JabraManager.refreshAvailability(this)
+        if (!aclRegistered) {
+            ContextCompat.registerReceiver(this, aclReceiver, IntentFilter().apply {
+                addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+            }, ContextCompat.RECEIVER_EXPORTED)
+            aclRegistered = true
+        }
         updateTile()
     }
 
     override fun onStopListening() {
+        if (aclRegistered) {
+            runCatching { unregisterReceiver(aclReceiver) }
+            aclRegistered = false
+        }
         JabraManager.removeListener(listener)
         super.onStopListening()
     }

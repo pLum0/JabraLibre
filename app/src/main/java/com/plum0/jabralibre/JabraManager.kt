@@ -232,11 +232,15 @@ object JabraManager {
         }
     }
 
-    private fun setState(s: ConnState) {
+    /**
+     * [checked]: the caller has just looked at the Bluetooth link itself, so
+     * its verdict wins — including "available again" after UNAVAILABLE.
+     */
+    private fun setState(s: ConnState, checked: Boolean = false) {
         if (state == s) return
         // the socket error that follows a disconnect must not downgrade the
         // more specific state we already learned from the ACL broadcast
-        if (s == ConnState.IDLE && state == ConnState.UNAVAILABLE) return
+        if (!checked && s == ConnState.IDLE && state == ConnState.UNAVAILABLE) return
         state = s
         notifyChanged()
     }
@@ -255,7 +259,12 @@ object JabraManager {
         val link = dev != null && JabraRfcomm.hasBluetoothLink(dev)
         log("availability: device=${dev?.address ?: "none"} byName=${bondedJabras(ctx).size} " +
             "mode=${mode ?: "unknown"} permission=$perm bluetooth=$bt link=$link")
-        setState(if (dev != null && perm && bt && link) ConnState.IDLE else ConnState.UNAVAILABLE)
+        // checked = true: otherwise the guard in setState() keeps the tile grey
+        // after the buds come back, and a grey tile receives no taps (issue 3)
+        setState(
+            if (dev != null && perm && bt && link) ConnState.IDLE else ConnState.UNAVAILABLE,
+            checked = true
+        )
     }
 
     /** The phone lost its Bluetooth link to the buds (case closed, powered off). */
